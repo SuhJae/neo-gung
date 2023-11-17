@@ -22,6 +22,5 @@
     "main_url": "https://www.deoksugung.go.kr/portal/contents.do?key=100",
     "table": "/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"]
-  },
   }
 }
