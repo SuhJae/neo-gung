@@ -4,9 +4,12 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as ec
 
 from log_manager import Logger, log
+from typing import Callable, Dict
+import json
 import re
 
 
@@ -14,16 +17,11 @@ class BaseCrawler:
     def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
         """
         Initialize the Selenium WebDriver with custom options.
+        This method automatically installs the Chrome WebDriver if not already installed, using ChromeDriverManager.
 
         :param headless: If True, the browser is run in headless mode, which means it operates without a GUI.
         :param no_images: If True, the browser will not load images, which can speed up web page loading times.
-        :param keep_window: If True, the browser window will not automatically close after the script completes execution.
-
-        Example usage:
-            # Initialize a WebDriver instance without images and in headless mode
-            driver_instance = WebDriver(headless=True, no_images=True, keep_window=False)
-
-        Note: This method automatically installs the Chrome WebDriver if not already installed, using ChromeDriverManager.
+        :param keep_window: If True, the browser window will not automatically close after execution.
         """
 
         options = Options()
@@ -82,29 +80,120 @@ class BaseCrawler:
         log.error(f"Failed to click the element after {max_retries} attempts.")
         return False
 
+    def parse_table(self, table_object: WebElement, column_type: list) -> list[dict]:
+        """
+        Iterate through the rows of the table and parse the data.
+        :param table_object: selenium object of the table
+        :param column_type: list of column types
+        :return: dictionary of the table
+        """
 
-class SiteACrawler(BaseCrawler):
-    def navigate_to_article(self):
-        # Site A specific navigation
-        pass
+        # Validate column types
+        valid_column_types = ["", "article_id", "title_url", "title_js_url", "date"]
+        if not all(col_type in valid_column_types for col_type in column_type):
+            raise ValueError("Invalid column type.")
 
-    def extract_data(self):
-        # Extract data specific to Site A
-        pass
+        def get_emulated_url(js_call: str, current_url: str) -> str:
+            """
+            Get the emulated URL from the JavaScript call
+            :param js_call: JavaScript call to emulate
+            :param current_url: current URL
+            :return:
+            """
 
-    # ... other Site A specific methods ...
+            argument_match = re.search(r"fn_egov_inqire_notice\('(\d+)'\);", js_call)
+            if not argument_match:
+                raise ValueError("Invalid JavaScript call format")
+
+            argument = argument_match.group(1)
+
+            # Action from the JavaScript function
+            action = "/agapp/public/bbs/selectBoardArticle.do?siteCd=CGG"
+
+            # Combine with the current URL and argument
+            # Assuming current_url is something like "http://www.example.com"
+            full_url = f"{current_url}{action}&nttId={argument}"
+            return full_url
+
+        # Parsing functions
+        def parse_article_id(column: WebElement) -> Dict[str, int]:
+            return {"article_id": int(column.text)}
+
+        def parse_title_url(column: WebElement) -> Dict[str, str]:
+            return {"title": column.text, "url": column.find_element(By.TAG_NAME, "a").get_attribute("href")}
+
+        def parse_title_js_url(column: WebElement) -> Dict[str, str]:
+            js_call = column.find_element(By.TAG_NAME, "a").get_attribute("href")
+            return {"title": column.text, "url": get_emulated_url(js_call, self.driver.current_url)}
+
+        def parse_date(column: WebElement) -> Dict[str, str]:
+            return {"date": column.text}
+
+        # Map column types to their respective parsing functions
+        column_parsers: Dict[str, Callable[[WebElement], any]] = {
+            "article_id": parse_article_id,
+            "title_url": parse_title_url,
+            "title_js_url": parse_title_js_url,
+            "date": parse_date
+        }
+
+        table_data = []
+
+        # Iterate through table rows
+        for row in table_object.find_elements(By.TAG_NAME, "tr"):
+            row_data = {}
+            columns = row.find_elements(By.XPATH, "./*")
+
+            for i, col_type in enumerate(column_type):
+                log.debug(f"{i} Column type: {col_type}")
+                log.debug(f"{i} Column text: {columns[i].text}")
+                if i >= len(columns) or col_type == "":
+                    break
+                try:
+                    row_data.update(column_parsers[col_type](columns[i]))
+                except Exception as e:
+                    log.error(f"Invalid row. Error: {e}")
+                    row_data = {}
+                    break
+
+            if row_data:
+                table_data.append(row_data)
+
+        return table_data
 
 
-class SiteBCrawler(BaseCrawler):
-    def navigate_to_article(self):
-        # Site B specific navigation
-        pass
+class GyeongbokgungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__(headless, no_images, keep_window)
+        with open("config.json") as f:
+            self.config = json.load(f)
+            self.config = self.config["gyeongbokgung"]
 
-    def extract_data(self):
-        # Extract data specific to Site B
-        pass
+    def fetch_main(self) -> list[dict]:
+        """
+        Fetch the main page of the website
+        :return: list of articles in list of dictionaries.
+        """
+        self.get(self.config["main_url"])
+        main_table = self.element_from_xpath(self.config["table"])
+        return self.parse_table(main_table, self.config["table_column"])
 
-    # ... other Site B specific methods ...
+
+class ChangdeokgungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__(headless, no_images, keep_window)
+        with open("config.json") as f:
+            self.config = json.load(f)
+            self.config = self.config["changdeokgung"]
+
+    def fetch_main(self) -> list[dict]:
+        """
+        Fetch the main page of the website
+        :return: list of articles in list of dictionaries.
+        """
+        self.get(self.config["main_url"])
+        main_table = self.element_from_xpath(self.config["table"])
+        return self.parse_table(main_table, self.config["table_column"])
 
 
 class Article:
@@ -147,4 +236,14 @@ class Article:
         self.attachments = attachments
 
 
-Logger(debug=True)
+if __name__ == "__main__":
+    Logger(debug=False)
+    # gyeongbokgung = GyeongbokgungCrawler(headless=False, no_images=False, keep_window=False)
+    changdeokgung = ChangdeokgungCrawler(headless=False, no_images=False, keep_window=False)
+
+    result = changdeokgung.fetch_main()
+
+    with open("result.json", "w") as file:
+        json.dump(result, file, ensure_ascii=False, indent=4)
+
+    # input("Press Enter to exit...")

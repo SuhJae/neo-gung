@@ -1,0 +1,14 @@
+{
+  "gyeongbokgung": {
+    "source_prefix": "gbg",
+    "main_url": "https://www.royalpalace.go.kr/content/board/list.asp",
+    "table": "/html/body/div[2]/div[2]/div[2]/div[2]/form/div/table/tbody",
+    "table_column": ["article_id", "title_url", "", "date"]
+  },
+  "changdeokgung": {
+    "source_prefix": "cdg",
+    "main_url": "https://www.cdg.go.kr/cms_for_cdg/process/board/list.jsp?nowPage=1&show_no=23&check_no=4&c_relation=48&c_relation2=110",
+    "table": "/html/body/div[1]/div[4]/b/div/div[2]/center/table/tbody",
+    "table_column": ["article_id", "title_url", "", "date"]
+  }
+}
