@@ -13,6 +13,77 @@ import json
 import re
 
 
+def parse_table(table_object: WebElement, column_type: list) -> list[dict]:
+    """
+    Iterate through the rows of the table and parse the data.
+    :param table_object: selenium object of the table
+    :param column_type: list of column types
+    :return: dictionary of the table
+    """
+
+    # Validate column types
+    valid_column_types = ["", "article_id", "title_url", "title_cgg_url", "date"]
+    if not all(col_type in valid_column_types for col_type in column_type):
+        raise ValueError("Invalid column type.")
+
+    def parse_cgg_url(column: WebElement) -> Dict[str, str]:
+        """
+        Get the emulated URL from the JavaScript call
+        :param column: column object
+        :return:
+        """
+        js_call = column.find_element(By.TAG_NAME, "a").get_attribute("href")
+        argument_match = re.search(r"fn_egov_inqire_notice\('(\d+)'\);", js_call)
+        if not argument_match:
+            raise ValueError("Invalid JavaScript call format")
+
+        full_url = ("https://cgg.cha.go.kr/agapp/public/bbs/selectBoardArticle.do?bbsId=BBSMSTR_000000000195&bbsTyCode"
+                    "=BBST03&bbsAttrbCode=BBSA03&nttId=")
+        return {"title": column.text, "url": full_url + argument_match.group(1)}
+
+    # Parsing functions
+    def parse_article_id(column: WebElement) -> Dict[str, int]:
+        return {"article_id": int(column.text)}
+
+    def parse_title_url(column: WebElement) -> Dict[str, str]:
+        return {"title": column.text, "url": column.find_element(By.TAG_NAME, "a").get_attribute("href")}
+
+    def parse_date(column: WebElement) -> Dict[str, str]:
+        return {"date": column.text}
+
+    # Map column types to their respective parsing functions
+    column_parsers: Dict[str, Callable[[WebElement], any]] = {
+        "article_id": parse_article_id,
+        "title_url": parse_title_url,
+        "title_cgg_url": parse_cgg_url,
+        "date": parse_date
+    }
+
+    table_data = []
+
+    # Iterate through table rows
+    for row in table_object.find_elements(By.TAG_NAME, "tr"):
+        row_data = {}
+        columns = row.find_elements(By.XPATH, "./*")
+
+        for i, col_type in enumerate(column_type):
+            log.debug(f"{i} Column type: {col_type}")
+            log.debug(f"{i} Column text: {columns[i].text}")
+            if i >= len(columns) or col_type == "":
+                break
+            try:
+                row_data.update(column_parsers[col_type](columns[i]))
+            except Exception as e:
+                log.error(f"Invalid row. Error: {e}")
+                row_data = {}
+                break
+
+        if row_data:
+            table_data.append(row_data)
+
+    return table_data
+
+
 class BaseCrawler:
     def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
         """
@@ -80,87 +151,6 @@ class BaseCrawler:
         log.error(f"Failed to click the element after {max_retries} attempts.")
         return False
 
-    def parse_table(self, table_object: WebElement, column_type: list) -> list[dict]:
-        """
-        Iterate through the rows of the table and parse the data.
-        :param table_object: selenium object of the table
-        :param column_type: list of column types
-        :return: dictionary of the table
-        """
-
-        # Validate column types
-        valid_column_types = ["", "article_id", "title_url", "title_js_url", "date"]
-        if not all(col_type in valid_column_types for col_type in column_type):
-            raise ValueError("Invalid column type.")
-
-        def get_emulated_url(js_call: str, current_url: str) -> str:
-            """
-            Get the emulated URL from the JavaScript call
-            :param js_call: JavaScript call to emulate
-            :param current_url: current URL
-            :return:
-            """
-
-            argument_match = re.search(r"fn_egov_inqire_notice\('(\d+)'\);", js_call)
-            if not argument_match:
-                raise ValueError("Invalid JavaScript call format")
-
-            argument = argument_match.group(1)
-
-            # Action from the JavaScript function
-            action = "/agapp/public/bbs/selectBoardArticle.do?siteCd=CGG"
-
-            # Combine with the current URL and argument
-            # Assuming current_url is something like "http://www.example.com"
-            full_url = f"{current_url}{action}&nttId={argument}"
-            return full_url
-
-        # Parsing functions
-        def parse_article_id(column: WebElement) -> Dict[str, int]:
-            return {"article_id": int(column.text)}
-
-        def parse_title_url(column: WebElement) -> Dict[str, str]:
-            return {"title": column.text, "url": column.find_element(By.TAG_NAME, "a").get_attribute("href")}
-
-        def parse_title_js_url(column: WebElement) -> Dict[str, str]:
-            js_call = column.find_element(By.TAG_NAME, "a").get_attribute("href")
-            return {"title": column.text, "url": get_emulated_url(js_call, self.driver.current_url)}
-
-        def parse_date(column: WebElement) -> Dict[str, str]:
-            return {"date": column.text}
-
-        # Map column types to their respective parsing functions
-        column_parsers: Dict[str, Callable[[WebElement], any]] = {
-            "article_id": parse_article_id,
-            "title_url": parse_title_url,
-            "title_js_url": parse_title_js_url,
-            "date": parse_date
-        }
-
-        table_data = []
-
-        # Iterate through table rows
-        for row in table_object.find_elements(By.TAG_NAME, "tr"):
-            row_data = {}
-            columns = row.find_elements(By.XPATH, "./*")
-
-            for i, col_type in enumerate(column_type):
-                log.debug(f"{i} Column type: {col_type}")
-                log.debug(f"{i} Column text: {columns[i].text}")
-                if i >= len(columns) or col_type == "":
-                    break
-                try:
-                    row_data.update(column_parsers[col_type](columns[i]))
-                except Exception as e:
-                    log.error(f"Invalid row. Error: {e}")
-                    row_data = {}
-                    break
-
-            if row_data:
-                table_data.append(row_data)
-
-        return table_data
-
 
 class GyeongbokgungCrawler(BaseCrawler):
     def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
@@ -176,7 +166,7 @@ class GyeongbokgungCrawler(BaseCrawler):
         """
         self.get(self.config["main_url"])
         main_table = self.element_from_xpath(self.config["table"])
-        return self.parse_table(main_table, self.config["table_column"])
+        return parse_table(main_table, self.config["table_column"])
 
 
 class ChangdeokgungCrawler(BaseCrawler):
@@ -193,7 +183,41 @@ class ChangdeokgungCrawler(BaseCrawler):
         """
         self.get(self.config["main_url"])
         main_table = self.element_from_xpath(self.config["table"])
-        return self.parse_table(main_table, self.config["table_column"])
+        return parse_table(main_table, self.config["table_column"])
+
+
+class ChanggyeonggungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__(headless, no_images, keep_window)
+        with open("config.json") as f:
+            self.config = json.load(f)
+            self.config = self.config["changgyeonggung"]
+
+    def fetch_main(self) -> list[dict]:
+        """
+        Fetch the main page of the website
+        :return: list of articles in list of dictionaries.
+        """
+        self.get(self.config["main_url"])
+        main_table = self.element_from_xpath(self.config["table"])
+        return parse_table(main_table, self.config["table_column"])
+
+
+class DeoksugungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__(headless, no_images, keep_window)
+        with open("config.json") as f:
+            self.config = json.load(f)
+            self.config = self.config["deoksugung"]
+
+    def fetch_main(self) -> list[dict]:
+        """
+        Fetch the main page of the website
+        :return: list of articles in list of dictionaries.
+        """
+        self.get(self.config["main_url"])
+        main_table = self.element_from_xpath(self.config["table"])
+        return parse_table(main_table, self.config["table_column"])
 
 
 class Article:
@@ -217,7 +241,7 @@ class Article:
         """
 
         # Check for errors in the input
-        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm"]:
+        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm"]:
             raise ValueError(
                 "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
 
@@ -239,9 +263,11 @@ class Article:
 if __name__ == "__main__":
     Logger(debug=False)
     # gyeongbokgung = GyeongbokgungCrawler(headless=False, no_images=False, keep_window=False)
-    changdeokgung = ChangdeokgungCrawler(headless=False, no_images=False, keep_window=False)
+    # changdeokgung = ChangdeokgungCrawler(headless=False, no_images=False, keep_window=False)
+    # changgyeonggung = ChanggyeonggungCrawler(headless=False, no_images=False, keep_window=False)
+    deoksugung = DeoksugungCrawler(headless=False, no_images=False, keep_window=False)
 
-    result = changdeokgung.fetch_main()
+    result = deoksugung.fetch_main()
 
     with open("result.json", "w") as file:
         json.dump(result, file, ensure_ascii=False, indent=4)

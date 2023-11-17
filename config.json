@@ -10,5 +10,18 @@
     "main_url": "https://www.cdg.go.kr/cms_for_cdg/process/board/list.jsp?nowPage=1&show_no=23&check_no=4&c_relation=48&c_relation2=110",
     "table": "/html/body/div[1]/div[4]/b/div/div[2]/center/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"]
+  },
+  "changgyeonggung": {
+    "source_prefix": "cgg",
+    "main_url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000195&pageNo=75040000&siteCd=CGG",
+    "table": "/html/body/div[2]/div[6]/div[2]/div[2]/div/div[2]/table/tbody",
+    "table_column": ["article_id", "title_cgg_url", "", "", "date"]
+  },
+  "deoksugung": {
+    "source_prefix": "dsg",
+    "main_url": "https://www.deoksugung.go.kr/portal/contents.do?key=100",
+    "table": "/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/table/tbody",
+    "table_column": ["article_id", "title_url", "", "date"]
+  },
   }
 }
