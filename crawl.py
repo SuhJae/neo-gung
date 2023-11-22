@@ -14,7 +14,7 @@ import re
 
 
 class BaseCrawler:
-    def __init__(self, config_key, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+    def __init__(self, config_key, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         """
         Initialize the Selenium WebDriver with custom options.
         This method automatically installs the Chrome WebDriver if not already installed, using ChromeDriverManager.
@@ -27,6 +27,7 @@ class BaseCrawler:
         self.no_images = no_images
         self.keep_window = keep_window
         self.config = self.load_config(config_key)
+        self.constants = self.load_config("constants")
 
         options = Options()
         if headless:
@@ -37,14 +38,19 @@ class BaseCrawler:
             options.add_experimental_option("detach", True)
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_driver()
+
     @staticmethod
     def load_config(config_key):
         with open("config.json") as f:
             config = json.load(f)
         return config[config_key]
 
-    @staticmethod
-    def parse_table(table_object: WebElement, column_type: list) -> list[dict]:
+    def parse_table(self, table_object: WebElement, column_type: list) -> list[dict]:
         """
         Iterate through the rows of the table and parse the data.
         :param table_object: selenium object of the table
@@ -53,11 +59,11 @@ class BaseCrawler:
         """
 
         # Validate column types
-        valid_column_types = ["", "article_id", "title_url", "title_cgg_url", "date"]
+        valid_column_types = ["", "article_id", "title_url", "title_js_url", "date"]
         if not all(col_type in valid_column_types for col_type in column_type):
             raise ValueError("Invalid column type.")
 
-        def parse_cgg_url(column: WebElement) -> Dict[str, str]:
+        def parse_js_url(column: WebElement) -> Dict[str, str]:
             """
             Get the emulated URL from the JavaScript call
             :param column: column object
@@ -68,10 +74,8 @@ class BaseCrawler:
             if not argument_match:
                 raise ValueError("Invalid JavaScript call format")
 
-            full_url = (
-                "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardArticle.do?bbsId=BBSMSTR_000000000195&bbsTyCode"
-                "=BBST03&bbsAttrbCode=BBSA03&nttId=")
-            return {"title": column.text, "url": full_url + argument_match.group(1)}
+            base_url = self.driver.current_url + self.constants['js_url']
+            return {"title": column.text, "url": base_url + argument_match.group(1)}
 
         # Parsing functions
         def parse_article_id(column: WebElement) -> Dict[str, int]:
@@ -87,7 +91,7 @@ class BaseCrawler:
         column_parsers: Dict[str, Callable[[WebElement], any]] = {
             "article_id": parse_article_id,
             "title_url": parse_title_url,
-            "title_cgg_url": parse_cgg_url,
+            "title_js_url": parse_js_url,
             "date": parse_date
         }
 
@@ -172,19 +176,39 @@ class BaseCrawler:
         return False
 
 
-class ChanggyeonggungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("changgyeonggung", headless, no_images, keep_window)
-
-
-class DeoksugungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("deoksugung", headless, no_images, keep_window)
-
-
 class GyeongbokgungCrawler(BaseCrawler):
     def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("gyeongbokgung", headless, no_images, keep_window)
+
+
+class ChanggyeonggungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("changgyeonggung", headless, no_images, keep_window)
+
+
+class JongmyoCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("jongmyo", headless, no_images, keep_window)
+
+
+class DeoksugungEventsCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("deoksugung_events", headless, no_images, keep_window)
+
+
+class DeoksugungNoticeCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("deoksugung_notice", headless, no_images, keep_window)
+
+
+class RoyalTombsNoticeCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("royal_tombs_notice", headless, no_images, keep_window)
+
+
+class RoyalTombsEventsCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("royal_tombs_events", headless, no_images, keep_window)
 
 
 class Article:
@@ -229,13 +253,9 @@ class Article:
 
 if __name__ == "__main__":
     Logger(debug=False)
-    gyeongbokgung = GyeongbokgungCrawler()
-    # changdeokgung = ChangdeokgungCrawler()
-    # changgyeonggung = ChanggyeonggungCrawler()
 
-    result = gyeongbokgung.fetch_main()
+    with RoyalTombsEventsCrawler() as crawler:
+        result = crawler.fetch_main()
 
     with open("result.json", "w") as file:
         json.dump(result, file, ensure_ascii=False, indent=4)
-
-    # input("Press Enter to exit...")
