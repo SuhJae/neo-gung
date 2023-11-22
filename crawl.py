@@ -110,7 +110,7 @@ class BaseCrawler:
                 try:
                     row_data.update(column_parsers[col_type](columns[i]))
                 except Exception as e:
-                    log.error(f"Invalid row. Error: {e}")
+                    log.debug(f"Invalid row. Error: {e}")
                     row_data = {}
                     break
 
@@ -124,9 +124,95 @@ class BaseCrawler:
         Fetch the main page of the website
         :return: list of articles in list of dictionaries.
         """
-        self.get(self.config["main_url"])
+        self.get(self.config["url"] + "1")
         main_table = self.element_from_xpath(self.config["table"])
         return self.parse_table(main_table, self.config["table_column"])
+
+    def last_article_id(self) -> int:
+        """
+        Fetch the last article id of the website
+        :return: last article id
+        """
+        table = self.fetch_main()
+        return table[0]["article_id"]
+
+    def last_page_number(self) -> int:
+        """
+        Fetch the last page number of the website
+        :return: last page number
+        """
+        article_count = self.last_article_id()
+        return article_count // self.config["articles_per_page"] + 1
+
+    def fetch_article_list(self, page: int = 1) -> list[dict]:
+        """
+        Fetch the article list page of the website
+        :param page: page number to fetch
+        :return: list of articles in list of dictionaries.
+        :raises: ValueError if the page number is less than 1.
+        :raises: OutOfBoundsException if the page number is out of bounds.
+        """
+        if page < 1:
+            raise ValueError("Page number must be greater than 0")
+        if page > self.last_page_number():
+            raise ValueError("Page number is out of bounds")
+
+        self.get(self.config["url"] + str(page))
+        list_table = self.element_from_xpath(self.config["table"])
+        return self.parse_table(list_table, self.config["table_column"])
+
+    def fetch_article_list_range(self, page_start: int = 1, page_end: int = None) -> list[dict]:
+        """
+        Fetch the article list page of the website in a range.
+        :param page_start: starting page number to fetch (inclusive).
+        :param page_end: ending page number to fetch (inclusive). When not specified, it defaults to the last page.
+        :return: list of articles in list of dictionaries.
+        :raises: ValueError if the page number is less than 1.
+        :raises: ValueError if starting page number is greater than the ending page number.
+        :raises: OutOfBoundsException if the page number is out of bounds.
+        """
+        if page_start < 1:
+            raise ValueError("Starting page number must be greater than 0")
+        if page_end:
+            if page_end < 1:
+                raise ValueError("Ending page number must be greater than 0")
+            if page_start > page_end:
+                raise ValueError("Starting page number cannot be greater than the ending page number")
+        else:
+            page_end = self.last_page_number()
+
+        master_list = []
+        for page in range(page_start, page_end + 1):
+            master_list += self.fetch_article_list(page)
+        return master_list
+
+    def fetch_article_until(self, article_id: int, max_ceiling: int = 500) -> list[dict]:
+        """
+        Fetch the article list page of the website until the article id is found.
+        :param article_id: article id to search for
+        :param max_ceiling: maximum number of pages to search for
+        :return: list of articles in list of dictionaries.
+        :raises: ValueError if the article id is less than 1.
+        :raises: OutOfBoundsException if the article id is out of bounds.
+        """
+        if article_id < 1:
+            raise ValueError("Article ID must be greater than 0")
+        if article_id > self.last_article_id():
+            raise ValueError("Article ID is out of bounds")
+
+        master_list = []
+        for page in range(1, max_ceiling + 1):
+            master_list += self.fetch_article_list(page)
+            if master_list[0]["article_id"] <= article_id:
+                break
+
+        # delete articles after the article id
+        for i, article in enumerate(master_list):
+            if article["article_id"] > article_id:
+                del master_list[i:]
+                break
+
+        return master_list
 
     def close_driver(self) -> None:
         """
@@ -177,13 +263,18 @@ class BaseCrawler:
 
 
 class GyeongbokgungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = False, no_images: bool = True, keep_window: bool = False) -> None:
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("gyeongbokgung", headless, no_images, keep_window)
 
 
 class ChanggyeonggungCrawler(BaseCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("changgyeonggung", headless, no_images, keep_window)
+
+
+class ChangdeokgungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("changdeokgung", headless, no_images, keep_window)
 
 
 class JongmyoCrawler(BaseCrawler):
@@ -217,8 +308,8 @@ class Article:
         """
         Initialize a new article instance.
 
-        :param source_prefix: Prefix of the source, one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm".
-                              Used to categorize the article's source.
+        :param source_prefix: Prefix of the source, Used to categorize the article's source.
+        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
         :param article_id: Unique identifier for the article.
         :param source_url: URL of the article's original source.
         :param title: Title of the article.
@@ -232,7 +323,7 @@ class Article:
         """
 
         # Check for errors in the input
-        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm"]:
+        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
             raise ValueError(
                 "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
 
@@ -251,11 +342,12 @@ class Article:
         self.attachments = attachments
 
 
+# 왕릉 pageUnit=10000 문제
 if __name__ == "__main__":
     Logger(debug=False)
 
-    with RoyalTombsEventsCrawler() as crawler:
-        result = crawler.fetch_main()
+    with RoyalTombsNoticeCrawler() as crawler:
+        result = crawler.fetch_article_list_range(1)
 
     with open("result.json", "w") as file:
         json.dump(result, file, ensure_ascii=False, indent=4)

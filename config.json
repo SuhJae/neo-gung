@@ -4,50 +4,58 @@
   },
   "gyeongbokgung": {
     "source_prefix": "gbg",
-    "main_url": "https://www.royalpalace.go.kr/content/board/list.asp",
+    "url": "https://www.royalpalace.go.kr/content/board/list.asp?page=",
     "table": "/html/body/div[2]/div[2]/div[2]/div[2]/form/div/table/tbody",
-    "table_column": ["article_id", "title_url", "", "date"]
+    "table_column": ["article_id", "title_url", "", "date"],
+    "articles_per_page": 10
   },
   "changdeokgung": {
     "source_prefix": "cdg",
-    "main_url": "https://www.cdg.go.kr/cms_for_cdg/process/board/list.jsp?nowPage=1&show_no=23&check_no=4&c_relation=48&c_relation2=110",
+    "url": "https://www.cdg.go.kr/cms_for_cdg/process/board/list.jsp?show_no=23&check_no=4&c_relation=48&c_relation2=110&nowPage=",
     "table": "/html/body/div[1]/div[4]/b/div/div[2]/center/table/tbody",
-    "table_column": ["article_id", "title_url", "", "date"]
+    "table_column": ["article_id", "title_url", "", "date"],
+    "articles_per_page": 10
   },
   "changgyeonggung": {
     "source_prefix": "cgg",
-    "main_url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000195&pageNo=75040000&siteCd=CGG",
+    "url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000195&pageNo=75040000&siteCd=CGG&pageIndex=",
     "table": "/html/body/div[2]/div[6]/div[2]/div[2]/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_js_url", "", "", "date"]
+    "table_column": ["article_id", "title_js_url", "", "", "date"],
+    "articles_per_page": 10
   },
   "deoksugung_events": {
     "source_prefix": "dsg-e",
-    "main_url": "https://www.deoksugung.go.kr/board/list?board_id=EVT",
+    "url": "https://www.deoksugung.go.kr/board/list?board_id=EVT&page=",
     "table": "/html/body/div[1]/section[2]/div/div/div[2]/div/div[2]/div/div/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_url", "date"]
+    "table_column": ["article_id", "title_url", "date"],
+    "articles_per_page": 10
   },
   "deoksugung_notice": {
     "source_prefix": "dsg-n",
-    "main_url": "https://www.deoksugung.go.kr/board/list?board_id=NOT",
+    "url": "https://www.deoksugung.go.kr/board/list?board_id=NOT&page=",
     "table": "/html/body/div[1]/section[2]/div/div/div[2]/div/div[2]/div/div/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_url", "date"]
+    "table_column": ["article_id", "title_url", "date"],
+    "articles_per_page": 10
   },
   "jongmyo": {
     "source_prefix": "jm",
-    "main_url": "https://jm.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000208&pageNo=75030000&siteCd=JM",
+    "url": "https://jm.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000208&pageNo=75030000&siteCd=JM&pageIndex=",
     "table": "/html/body/div[2]/div[3]/div[2]/div[2]/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_js_url", "", "", "date"]
+    "table_column": ["article_id", "title_js_url", "", "", "date"],
+    "articles_per_page": 10
   },
   "royal_tombs_notice": {
     "source_prefix": "rt-n",
-    "main_url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1085&mn=RT_04_01",
+    "url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1085&mn=RT_04_01&pageIndex=",
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_url", "", "date"]
+    "table_column": ["article_id", "title_url", "", "date"],
+    "articles_per_page": 10
   },
   "royal_tombs_events": {
     "source_prefix": "rt-e",
-    "main_url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1088&mn=RT_04_04",
+    "url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1088&mn=RT_04_04&pageIndex=",
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
-    "table_column": ["article_id", "title_url", "", "date"]
+    "table_column": ["article_id", "title_url", "", "date"],
+    "articles_per_page": 10
   }
 }
