@@ -7,7 +7,8 @@
     "url": "https://www.royalpalace.go.kr/content/board/list.asp?page=",
     "table": "/html/body/div[2]/div[2]/div[2]/div[2]/form/div/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
-    "articles_per_page": 10
+    "articles_per_page": 10,
+    "article_container": "/html/body/div[2]/div[2]/div[2]/div[2]/table/tbody/tr[2]/td"
   },
   "changdeokgung": {
     "source_prefix": "cdg",

@@ -12,6 +12,24 @@ from typing import Callable, Dict
 import json
 import re
 
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+
+
+def convert_html_table_to_markdown(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = soup.find_all('table')
+
+    for table in tables:
+        if not table.find('thead') and not table.find_all('th'):
+            first_row = table.find('tr')
+            header_cells = first_row.find_all('td')
+            for cell in header_cells:
+                cell.name = 'th'  # Convert first row cells to header cells
+
+    markdown = md(str(soup))
+    return markdown
+
 
 class BaseCrawler:
     def __init__(self, config_key, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
@@ -198,17 +216,17 @@ class BaseCrawler:
         if article_id < 1:
             raise ValueError("Article ID must be greater than 0")
         if article_id > self.last_article_id():
-            raise ValueError("Article ID is out of bounds")
+            raise ValueError(f"Article ID is out of bounds. Last article ID: {self.last_article_id()}")
 
         master_list = []
         for page in range(1, max_ceiling + 1):
             master_list += self.fetch_article_list(page)
-            if master_list[0]["article_id"] <= article_id:
+            if master_list[-1]["article_id"] <= article_id:
                 break
 
         # delete articles after the article id
         for i, article in enumerate(master_list):
-            if article["article_id"] > article_id:
+            if article["article_id"] < article_id:
                 del master_list[i:]
                 break
 
@@ -261,45 +279,52 @@ class BaseCrawler:
         log.error(f"Failed to click the element after {max_retries} attempts.")
         return False
 
+    def get_article(self, url: str) -> dict:
+        self.get(url)
+        article_html = self.element_from_xpath(self.config["article_container"]).get_attribute("innerHTML")
 
-class GyeongbokgungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("gyeongbokgung", headless, no_images, keep_window)
+        # Parse HTML with BeautifulSoup
+        soup = BeautifulSoup(article_html, 'html.parser')
 
+        # Remove scripts, styles, and non-essential attributes
+        [tag.decompose() for tag in soup(['script', 'style'])]
 
-class ChanggyeonggungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("changgyeonggung", headless, no_images, keep_window)
+        # Remove or unwrap unnecessary tags and attributes
+        for tag in soup.find_all():
+            if tag.name == 'a':
+                tag.attrs = {'href': tag.get('href')}  # Keep href attribute for 'a' tags
+            elif tag.name == 'img':
+                tag.attrs = {'src': tag.get('src')}  # Keep src attribute for 'img' tags
+            else:
+                tag.attrs = {}
 
+        # Remove spans by unwrapping them
+        for span in soup.find_all('span'):
+            span.unwrap()
 
-class ChangdeokgungCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("changdeokgung", headless, no_images, keep_window)
+        # Remove tags with empty content
+        for tag in soup.find_all():
+            if (not tag.contents or str(tag.contents[0]).strip() in ["", "\u200b"]) and tag.name not in ['br']:
+                tag.decompose()
 
+        # Normalize whitespaces and newlines
+        for tag in soup.find_all(string=True):
+            tag.replace_with(re.sub(r'\s+', ' ', tag.string.strip()))
 
-class JongmyoCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("jongmyo", headless, no_images, keep_window)
+        # Prepare minimal HTML structure
+        minimal_html = soup.new_tag('html')
+        head = soup.new_tag('head')
+        meta = soup.new_tag('meta', charset='UTF-8')
+        head.append(meta)
+        minimal_html.append(head)
+        body = soup.new_tag('body')
+        body.append(soup)
+        minimal_html.append(body)
 
+        # Convert to string
+        minimal_html_str = str(minimal_html)
 
-class DeoksugungEventsCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("deoksugung_events", headless, no_images, keep_window)
-
-
-class DeoksugungNoticeCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("deoksugung_notice", headless, no_images, keep_window)
-
-
-class RoyalTombsNoticeCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("royal_tombs_notice", headless, no_images, keep_window)
-
-
-class RoyalTombsEventsCrawler(BaseCrawler):
-    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
-        super().__init__("royal_tombs_events", headless, no_images, keep_window)
+        return {"url": url, "article": minimal_html_str}
 
 
 class Article:
@@ -342,12 +367,58 @@ class Article:
         self.attachments = attachments
 
 
-# 왕릉 pageUnit=10000 문제
+class GyeongbokgungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("gyeongbokgung", headless, no_images, keep_window)
+
+
+class ChanggyeonggungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("changgyeonggung", headless, no_images, keep_window)
+
+
+class ChangdeokgungCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("changdeokgung", headless, no_images, keep_window)
+
+
+class JongmyoCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("jongmyo", headless, no_images, keep_window)
+
+
+class DeoksugungEventsCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("deoksugung_events", headless, no_images, keep_window)
+
+
+class DeoksugungNoticeCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("deoksugung_notice", headless, no_images, keep_window)
+
+
+class RoyalTombsNoticeCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("royal_tombs_notice", headless, no_images, keep_window)
+
+
+class RoyalTombsEventsCrawler(BaseCrawler):
+    def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
+        super().__init__("royal_tombs_events", headless, no_images, keep_window)
+
+
 if __name__ == "__main__":
     Logger(debug=False)
 
-    with RoyalTombsNoticeCrawler() as crawler:
-        result = crawler.fetch_article_list_range(1)
+    # article_url = input("URL: ")
+    article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=968&page=&c1=&c2="
 
-    with open("result.json", "w") as file:
-        json.dump(result, file, ensure_ascii=False, indent=4)
+    with GyeongbokgungCrawler() as crawler:
+        result = crawler.get_article(article_url)
+
+    print(result['article'])
+
+    with open("result.html", "w") as file:
+        file.write(result['article'])
+
+"https://www.cha.go.kr/multiBbz/selectMultiBbzList.do?mn=NS_01_01&pageIndex=1&pageUnit=2bbzId=newpublic"
