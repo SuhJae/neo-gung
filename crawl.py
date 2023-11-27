@@ -12,23 +12,77 @@ from typing import Callable, Dict
 import json
 import re
 
-from bs4 import BeautifulSoup
-from markdownify import markdownify as md
+from bs4 import BeautifulSoup, NavigableString
 
 
-def convert_html_table_to_markdown(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    tables = soup.find_all('table')
+class Article:
+    def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
+                 attachments: list):
+        """
+        Initialize a new article instance.
 
-    for table in tables:
-        if not table.find('thead') and not table.find_all('th'):
-            first_row = table.find('tr')
-            header_cells = first_row.find_all('td')
-            for cell in header_cells:
-                cell.name = 'th'  # Convert first row cells to header cells
+        :param source_prefix: Prefix of the source, Used to categorize the article's source.
+        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
+        :param article_id: Unique identifier for the article.
+        :param source_url: URL of the article's original source.
+        :param title: Title of the article.
+        :param time: Timestamp of the article publication time, in the YYYY-MM-DD format.
+        :param content: Main content of the article in markdown format.
+        :param attachments: List of attachments related to the article, such as images or files.
 
-    markdown = md(str(soup))
-    return markdown
+        :raises ValueError: If the `source_prefix` is not one of the specified valid values.
+        :raises ValueError: If the `article_id` is not an integer or less than 1.
+        :raises ValueError: If the `time` is not in the YYYY-MM-DD format.
+        """
+
+        # Check for errors in the input
+        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
+            raise ValueError(
+                "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
+
+        if not article_id or not isinstance(article_id, int) or article_id < 1:
+            raise ValueError("Invalid article ID. It must be a positive integer.")
+
+        if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
+            raise ValueError("Invalid time. It must be in the YYYY-MM-DD format.")
+
+        self.source_prefix = source_prefix
+        self.article_id = article_id
+        self.url = source_url
+        self.title = title
+        self.time = time
+        self.content = content
+        self.attachments = attachments
+
+    def __str__(self):
+        return f"Article ID: {self.article_id}\n" \
+               f"Source URL: {self.url}\n" \
+               f"Title: {self.title}\n" \
+               f"Time: {self.time}\n" \
+               f"Content: {self.content}\n" \
+               f"Attachments: {self.attachments}\n"
+
+
+class BoardEntries:
+    def __init__(self, source_prefix: str, entries: list[Article]):
+        """
+        Initialize a new board entries instance.
+
+        :param source_prefix: Prefix of the source, Used to categorize the article's source.
+        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
+        :param entries: List of articles in the board.
+        """
+
+        # Check for errors in the input
+        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
+            raise ValueError(
+                "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
+
+        self.source_prefix = source_prefix
+        self.entries = entries
+
+    def __str__(self):
+        return "\n".join(str(entry) for entry in self.entries)
 
 
 class BaseCrawler:
@@ -123,8 +177,10 @@ class BaseCrawler:
             for i, col_type in enumerate(column_type):
                 log.debug(f"{i} Column type: {col_type}")
                 log.debug(f"{i} Column text: {columns[i].text}")
-                if i >= len(columns) or col_type == "":
+                if i >= len(columns):
                     break
+                if col_type == "":
+                    continue
                 try:
                     row_data.update(column_parsers[col_type](columns[i]))
                 except Exception as e:
@@ -247,7 +303,7 @@ class BaseCrawler:
         """
         self.driver.get(url)
 
-    def element_from_xpath(self, element_xpath: str, timeout: int = 10):
+    def element_from_xpath(self, element_xpath: str, timeout: int = 10) -> WebElement:
         """
         Get the element object for selenium from the xpath
         :param element_xpath: xpath of the element to get
@@ -279,18 +335,71 @@ class BaseCrawler:
         log.error(f"Failed to click the element after {max_retries} attempts.")
         return False
 
-    def get_article(self, url: str) -> dict:
+    def get_article_body(self, url: str) -> str:
+        """
+        Get the article body from the url with the minimal HTML structure
+        :param url: url of the article
+        :return: article body in minimal HTML structure
+        """
         self.get(url)
         article_html = self.element_from_xpath(self.config["article_container"]).get_attribute("innerHTML")
+        # Clean HTML using HTMLCleaner
+        clean_html = HTMLCleaner().clean_html(article_html)
+        return clean_html
 
-        # Parse HTML with BeautifulSoup
-        soup = BeautifulSoup(article_html, 'html.parser')
+
+class HTMLCleaner:
+    def __init__(self):
+        self.soup = None
+
+    def set_soup(self, html_content):
+        """Set the soup object from HTML content."""
+        self.soup = BeautifulSoup(html_content, 'html.parser')
+
+    def merge_formatting_tags(self, soup):
+        """
+        Merge adjacent formatting tags (like <b>, <i>, <strong>, etc.) if they are redundant.
+        """
+        for tag in soup.find_all(['b', 'i', 'strong', 'em']):  # Add more tags if needed
+            next_sibling = tag.find_next_sibling()
+            if next_sibling and tag.name == next_sibling.name and tag.attrs == next_sibling.attrs:
+                tag.string = (tag.string or '') + (next_sibling.string or '')
+                next_sibling.decompose()
+                # Recursively check for further adjacent tags
+                self.merge_formatting_tags(soup)
+
+    def merge_with_next_sibling(self, tag):
+        """
+        Merge a tag with its next sibling if they are of the same type and have the same attributes.
+        """
+        next_sibling = tag.next_sibling
+        while next_sibling and isinstance(next_sibling, NavigableString) and not next_sibling.strip():
+            next_sibling = next_sibling.next_sibling
+
+        if next_sibling and tag.name == next_sibling.name and tag.attrs == next_sibling.attrs:
+            tag.string = (tag.get_text() or '') + (next_sibling.get_text() or '')
+            next_sibling.decompose()
+            self.merge_with_next_sibling(tag)  # Check again in case there are more than two adjacent tags
+
+    def remove_empty_tags(self):
+        """
+        Remove empty tags from the soup.
+        """
+        if hasattr(self, 'soup'):
+            for tag in self.soup.find_all():
+                if not tag.get_text(strip=True):
+                    tag.decompose()
+        else:
+            raise AttributeError("Soup object not found in class instance.")
+
+    def clean_html(self, html_content) -> str:
+        self.soup = BeautifulSoup(html_content, 'html.parser')
 
         # Remove scripts, styles, and non-essential attributes
-        [tag.decompose() for tag in soup(['script', 'style'])]
+        [tag.decompose() for tag in self.soup(['script', 'style'])]
 
         # Remove or unwrap unnecessary tags and attributes
-        for tag in soup.find_all():
+        for tag in self.soup.find_all():
             if tag.name == 'a':
                 tag.attrs = {'href': tag.get('href')}  # Keep href attribute for 'a' tags
             elif tag.name == 'img':
@@ -298,73 +407,35 @@ class BaseCrawler:
             else:
                 tag.attrs = {}
 
+        # Unwrap or decompose div tags
+        for div in self.soup.find_all('div'):
+            div.unwrap()  # or div.decompose() to completely remove div and its content
+
         # Remove spans by unwrapping them
-        for span in soup.find_all('span'):
+        for span in self.soup.find_all('span'):
             span.unwrap()
 
-        # Remove tags with empty content
-        for tag in soup.find_all():
-            if (not tag.contents or str(tag.contents[0]).strip() in ["", "\u200b"]) and tag.name not in ['br']:
-                tag.decompose()
+        # Call the function to merge adjacent tags
+        self.merge_formatting_tags(self.soup)
 
-        # Normalize whitespaces and newlines
-        for tag in soup.find_all(string=True):
-            tag.replace_with(re.sub(r'\s+', ' ', tag.string.strip()))
+        # Remove empty tags
+        self.remove_empty_tags()
 
         # Prepare minimal HTML structure
-        minimal_html = soup.new_tag('html')
-        head = soup.new_tag('head')
-        meta = soup.new_tag('meta', charset='UTF-8')
+        minimal_html = self.soup.new_tag('html')
+        head = self.soup.new_tag('head')
+        meta = self.soup.new_tag('meta', charset='UTF-8')
         head.append(meta)
         minimal_html.append(head)
-        body = soup.new_tag('body')
-        body.append(soup)
+        body = self.soup.new_tag('body')
+        body.append(self.soup)
         minimal_html.append(body)
 
         # Convert to string
-        minimal_html_str = str(minimal_html)
-
-        return {"url": url, "article": minimal_html_str}
-
-
-class Article:
-    def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
-                 attachments: list):
-        """
-        Initialize a new article instance.
-
-        :param source_prefix: Prefix of the source, Used to categorize the article's source.
-        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
-        :param article_id: Unique identifier for the article.
-        :param source_url: URL of the article's original source.
-        :param title: Title of the article.
-        :param time: Timestamp of the article publication time, in the YYYY-MM-DD format.
-        :param content: Main content of the article in markdown format.
-        :param attachments: List of attachments related to the article, such as images or files.
-
-        :raises ValueError: If the `source_prefix` is not one of the specified valid values.
-        :raises ValueError: If the `article_id` is not an integer or less than 1.
-        :raises ValueError: If the `time` is not in the YYYY-MM-DD format.
-        """
-
-        # Check for errors in the input
-        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
-            raise ValueError(
-                "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
-
-        if not article_id or not isinstance(article_id, int) or article_id < 1:
-            raise ValueError("Invalid article ID. It must be a positive integer.")
-
-        if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
-            raise ValueError("Invalid time. It must be in the YYYY-MM-DD format.")
-
-        self.source_prefix = source_prefix
-        self.article_id = article_id
-        self.url = source_url
-        self.title = title
-        self.time = time
-        self.content = content
-        self.attachments = attachments
+        result_html = str(minimal_html)
+        # normalize spaces using regex
+        result_html = re.sub(r"\s+", " ", result_html)
+        return result_html
 
 
 class GyeongbokgungCrawler(BaseCrawler):
@@ -408,17 +479,15 @@ class RoyalTombsEventsCrawler(BaseCrawler):
 
 
 if __name__ == "__main__":
-    Logger(debug=False)
+    Logger(debug=True)
 
     # article_url = input("URL: ")
-    article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=968&page=&c1=&c2="
+    # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
     with GyeongbokgungCrawler() as crawler:
-        result = crawler.get_article(article_url)
+        result = crawler.fetch_main()
 
-    print(result['article'])
+    print(result)
 
-    with open("result.html", "w") as file:
-        file.write(result['article'])
-
-"https://www.cha.go.kr/multiBbz/selectMultiBbzList.do?mn=NS_01_01&pageIndex=1&pageUnit=2bbzId=newpublic"
+    with open("result.json", "w") as file:
+        file.write(json.dumps(result, ensure_ascii=False, indent=4))

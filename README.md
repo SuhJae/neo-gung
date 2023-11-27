@@ -1,26 +1,19 @@
-# Neo-Gung
-The all-new backend worker for the [GungGungYouYou](https://gung.joseon.space) webservice.
+2024학년도 대학수학능력시험이 2023. 11. 16.(목)에 시행됨에 따라
 
-## 1. Introduction
-This is the repository for the total remake of the backend worker of the [GungGungYouYou](https://gung.joseon.space) webservice.
-The original backend worker was written just in 2 days without considering the scalability and maintainability with huge issues like:
-1. Hardcoded crawling logic, parameters, secrets, and more on over 20 files.
-2. No proper logging system.
-3. Full of boilerplate code; lack of encapsulation.
+원활한 교통 소통 및 수험생 편의를 위하여
 
-After half an year of the original release, the service has grown up to a level that the original backend worker cannot handle.
-So I decided to remake the backend worker from scratch, but this time with proper design and architecture driven from the principles of OOP and Clean Architecture.
+경복궁 및 칠궁 개방시간을 아래와 같이 조정하오니 관람에 참고하시기 바랍니다. 
 
-## 2. Structure
+- 조정일자 : 2023. 11. 16.(목)
 
-**[log_manager.py](log_manager.py)**: The logging manager that handles all the logging stuffs.
-- ColoredFormatter: The formatter that adds colors to the log messages.
-- LogManager: The logging manager that handles all the logging stuffs.
+ *대학수학능력 시행일 당일
 
-**[crawl.py](crawl.py)**: The crawling module that handles all the crawling data from the web.
-- BaseCrawler: Includes common crawling logic from initializing the driver to commonly used crawling methods such as `element_from_xpath` and `click_by_xpath`.
-- SiteACrawler: The crawler for the site A. (planned)
-- SiteBCrawler: The crawler for the site B. (planned)
-- Article: The article class that contains the data of the article. This will improve maintainability and readability of the code then just using the dictionary and prone to errors caused by typos.
+- 조정시간 : 오전 09:00 ----> 오전 10:00 
 
+ *폐문 시간은 17:00로 변경 없음 
 
+※광화문, 협생문, 용성문 포함 (기존 - 오전 08:00 ----> 변경 - 오전 10:00)
+
+Due to College Scholastic Ability Test(CSAT)
+
+Gyeongbokgung Palace opens one hour later at 10:00 a.m. **on Nov. 16th, 2023.**
