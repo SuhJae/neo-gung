@@ -1,13 +1,10 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as ec
 
 from log_manager import Logger, log
+from models import *
+from browser import BaseCrawler
+
 from typing import Callable, Dict
 import json
 import re
@@ -15,77 +12,7 @@ import re
 from bs4 import BeautifulSoup, NavigableString
 
 
-class Article:
-    def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
-                 attachments: list):
-        """
-        Initialize a new article instance.
-
-        :param source_prefix: Prefix of the source, Used to categorize the article's source.
-        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
-        :param article_id: Unique identifier for the article.
-        :param source_url: URL of the article's original source.
-        :param title: Title of the article.
-        :param time: Timestamp of the article publication time, in the YYYY-MM-DD format.
-        :param content: Main content of the article in markdown format.
-        :param attachments: List of attachments related to the article, such as images or files.
-
-        :raises ValueError: If the `source_prefix` is not one of the specified valid values.
-        :raises ValueError: If the `article_id` is not an integer or less than 1.
-        :raises ValueError: If the `time` is not in the YYYY-MM-DD format.
-        """
-
-        # Check for errors in the input
-        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
-            raise ValueError(
-                "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
-
-        if not article_id or not isinstance(article_id, int) or article_id < 1:
-            raise ValueError("Invalid article ID. It must be a positive integer.")
-
-        if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
-            raise ValueError("Invalid time. It must be in the YYYY-MM-DD format.")
-
-        self.source_prefix = source_prefix
-        self.article_id = article_id
-        self.url = source_url
-        self.title = title
-        self.time = time
-        self.content = content
-        self.attachments = attachments
-
-    def __str__(self):
-        return f"Article ID: {self.article_id}\n" \
-               f"Source URL: {self.url}\n" \
-               f"Title: {self.title}\n" \
-               f"Time: {self.time}\n" \
-               f"Content: {self.content}\n" \
-               f"Attachments: {self.attachments}\n"
-
-
-class BoardEntries:
-    def __init__(self, source_prefix: str, entries: list[Article]):
-        """
-        Initialize a new board entries instance.
-
-        :param source_prefix: Prefix of the source, Used to categorize the article's source.
-        Must be one of: "cdg", "cgg", "dsg-e", "dsg-j", "dsg-n", "gbg", "jm" or "rt".
-        :param entries: List of articles in the board.
-        """
-
-        # Check for errors in the input
-        if source_prefix and source_prefix not in ["cdg", "cgg", "dsg-e", "dsg-n", "gbg", "jm", "rt-n", "rt-e"]:
-            raise ValueError(
-                "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
-
-        self.source_prefix = source_prefix
-        self.entries = entries
-
-    def __str__(self):
-        return "\n".join(str(entry) for entry in self.entries)
-
-
-class BaseCrawler:
+class GungCrawler(BaseCrawler):
     def __init__(self, config_key, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         """
         Initialize the Selenium WebDriver with custom options.
@@ -95,26 +22,9 @@ class BaseCrawler:
         :param no_images: If True, the browser will not load images, which can speed up web page loading times.
         :param keep_window: If True, the browser window will not automatically close after execution.
         """
-        self.headless = headless
-        self.no_images = no_images
-        self.keep_window = keep_window
+        super().__init__(headless, no_images, keep_window)
         self.config = self.load_config(config_key)
         self.constants = self.load_config("constants")
-
-        options = Options()
-        if headless:
-            options.add_argument("--headless")
-        if no_images:
-            options.add_argument("--blink-settings=imagesEnabled=false")
-        if keep_window:
-            options.add_experimental_option("detach", True)
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close_driver()
 
     @staticmethod
     def load_config(config_key):
@@ -122,7 +32,7 @@ class BaseCrawler:
             config = json.load(f)
         return config[config_key]
 
-    def parse_table(self, table_object: WebElement, column_type: list) -> list[dict]:
+    def parse_table(self, table_object: WebElement, column_type: list) -> list[PreviewItem]:
         """
         Iterate through the rows of the table and parse the data.
         :param table_object: selenium object of the table
@@ -146,7 +56,9 @@ class BaseCrawler:
             if not argument_match:
                 raise ValueError("Invalid JavaScript call format")
 
-            base_url = self.driver.current_url + self.constants['js_url']
+            # domain + js_url
+            base_url = self.config["domain"] + self.constants["js_url"]
+            print(base_url)
             return {"title": column.text, "url": base_url + argument_match.group(1)}
 
         # Parsing functions
@@ -189,11 +101,13 @@ class BaseCrawler:
                     break
 
             if row_data:
-                table_data.append(row_data)
+                table_data.append(
+                    PreviewItem(article_id=row_data["article_id"], title=row_data["title"], url=row_data["url"],
+                                time=row_data["date"]))
 
         return table_data
 
-    def fetch_main(self) -> list[dict]:
+    def fetch_main(self) -> list[PreviewItem]:
         """
         Fetch the main page of the website
         :return: list of articles in list of dictionaries.
@@ -208,7 +122,7 @@ class BaseCrawler:
         :return: last article id
         """
         table = self.fetch_main()
-        return table[0]["article_id"]
+        return table[0].article_id
 
     def last_page_number(self) -> int:
         """
@@ -218,7 +132,7 @@ class BaseCrawler:
         article_count = self.last_article_id()
         return article_count // self.config["articles_per_page"] + 1
 
-    def fetch_article_list(self, page: int = 1) -> list[dict]:
+    def fetch_article_list(self, page: int = 1) -> list[PreviewItem]:
         """
         Fetch the article list page of the website
         :param page: page number to fetch
@@ -288,53 +202,6 @@ class BaseCrawler:
 
         return master_list
 
-    def close_driver(self) -> None:
-        """
-        Close the driver
-        :return: None
-        """
-        self.driver.close()
-
-    def get(self, url: str) -> None:
-        """
-        Get the url in the browser
-        :param url: url to get
-        :return: None
-        """
-        self.driver.get(url)
-
-    def element_from_xpath(self, element_xpath: str, timeout: int = 10) -> WebElement:
-        """
-        Get the element object for selenium from the xpath
-        :param element_xpath: xpath of the element to get
-        :param timeout: timeout in seconds
-        :return: element object for selenium
-        """
-        return WebDriverWait(self.driver, timeout).until(ec.presence_of_element_located((By.XPATH, element_xpath)))
-
-    def click_by_xpath(self, element_xpath: str, timeout: int = 10, max_retries: int = 5) -> bool:
-        """
-        Click the element by xpath
-        :param element_xpath: xpath of the element to click
-        :param timeout: timeout in seconds
-        :param max_retries: max retries to click the element
-        :return: True if the element is clicked, False otherwise
-        """
-
-        for i in range(max_retries):
-            try:
-                element = self.element_from_xpath(element_xpath, timeout)
-                element.click()
-                return True
-            except Exception as e:
-                log.debug(f"URL: {self.driver.current_url}")
-                log.debug(f"Element xpath: {element_xpath}")
-                log.warning(f"(Attempt {i + 1}/{max_retries}) Failed to click the element: {e}")
-                continue
-
-        log.error(f"Failed to click the element after {max_retries} attempts.")
-        return False
-
     def get_article_body(self, url: str) -> str:
         """
         Get the article body from the url with the minimal HTML structure
@@ -346,6 +213,16 @@ class BaseCrawler:
         # Clean HTML using HTMLCleaner
         clean_html = HTMLCleaner().clean_html(article_html)
         return clean_html
+
+    def get_article(self, item: PreviewItem) -> Article:
+        """
+        Get the article from the PreviewItem
+        :param item: PreviewItem object
+        :return: Article object
+        """
+        article_body = self.get_article_body(item.url)
+        return Article(source_prefix=self.config["source_prefix"], article_id=item.article_id, source_url=item.url,
+                       title=item.title, time=item.time, content=article_body)
 
 
 class HTMLCleaner:
@@ -438,56 +315,54 @@ class HTMLCleaner:
         return result_html
 
 
-class GyeongbokgungCrawler(BaseCrawler):
+class GyeongbokgungCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("gyeongbokgung", headless, no_images, keep_window)
 
 
-class ChanggyeonggungCrawler(BaseCrawler):
+class ChanggyeonggungCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("changgyeonggung", headless, no_images, keep_window)
 
 
-class ChangdeokgungCrawler(BaseCrawler):
+class ChangdeokgungCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("changdeokgung", headless, no_images, keep_window)
 
 
-class JongmyoCrawler(BaseCrawler):
+class JongmyoCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("jongmyo", headless, no_images, keep_window)
 
 
-class DeoksugungEventsCrawler(BaseCrawler):
+class DeoksugungEventsCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("deoksugung_events", headless, no_images, keep_window)
 
 
-class DeoksugungNoticeCrawler(BaseCrawler):
+class DeoksugungNoticeCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("deoksugung_notice", headless, no_images, keep_window)
 
 
-class RoyalTombsNoticeCrawler(BaseCrawler):
+class RoyalTombsNoticeCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("royal_tombs_notice", headless, no_images, keep_window)
 
 
-class RoyalTombsEventsCrawler(BaseCrawler):
+class RoyalTombsEventsCrawler(GungCrawler):
     def __init__(self, headless: bool = True, no_images: bool = True, keep_window: bool = False) -> None:
         super().__init__("royal_tombs_events", headless, no_images, keep_window)
 
 
 if __name__ == "__main__":
-    Logger(debug=True)
+    Logger(debug=False)
 
     # article_url = input("URL: ")
     # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
     with GyeongbokgungCrawler() as crawler:
         result = crawler.fetch_main()
+        arti = crawler.get_article(result[0])
 
-    print(result)
-
-    with open("result.json", "w") as file:
-        file.write(json.dumps(result, ensure_ascii=False, indent=4))
+    print(arti)

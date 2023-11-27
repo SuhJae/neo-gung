@@ -1,9 +1,10 @@
 {
   "constants": {
-    "js_url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardArticle.do?bbsId=BBSMSTR_000000000195&bbsTyCode=BBST03&bbsAttrbCode=BBSA03&nttId="
+    "js_url": "/agapp/public/bbs/selectBoardArticle.do?bbsId=BBSMSTR_000000000195&bbsTyCode=BBST03&bbsAttrbCode=BBSA03&nttId="
   },
   "gyeongbokgung": {
     "source_prefix": "gbg",
+    "domain": "https://www.royalpalace.go.kr",
     "url": "https://www.royalpalace.go.kr/content/board/list.asp?page=",
     "table": "/html/body/div[2]/div[2]/div[2]/div[2]/form/div/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
@@ -12,6 +13,7 @@
   },
   "changdeokgung": {
     "source_prefix": "cdg",
+    "domain": "https://www.cdg.go.kr",
     "url": "https://www.cdg.go.kr/cms_for_cdg/process/board/list.jsp?show_no=23&check_no=4&c_relation=48&c_relation2=110&nowPage=",
     "table": "/html/body/div[1]/div[4]/b/div/div[2]/center/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
@@ -19,6 +21,7 @@
   },
   "changgyeonggung": {
     "source_prefix": "cgg",
+    "domain": "https://cgg.cha.go.kr",
     "url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000195&pageNo=75040000&siteCd=CGG&pageIndex=",
     "table": "/html/body/div[2]/div[6]/div[2]/div[2]/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_js_url", "", "", "date"],
@@ -26,6 +29,7 @@
   },
   "deoksugung_events": {
     "source_prefix": "dsg-e",
+    "domain": "https://www.deoksugung.go.kr",
     "url": "https://www.deoksugung.go.kr/board/list?board_id=EVT&page=",
     "table": "/html/body/div[1]/section[2]/div/div/div[2]/div/div[2]/div/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "date"],
@@ -33,6 +37,7 @@
   },
   "deoksugung_notice": {
     "source_prefix": "dsg-n",
+    "domain": "https://www.deoksugung.go.kr",
     "url": "https://www.deoksugung.go.kr/board/list?board_id=NOT&page=",
     "table": "/html/body/div[1]/section[2]/div/div/div[2]/div/div[2]/div/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "date"],
@@ -40,6 +45,7 @@
   },
   "jongmyo": {
     "source_prefix": "jm",
+    "domain": "https://jm.cha.go.kr",
     "url": "https://jm.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000208&pageNo=75030000&siteCd=JM&pageIndex=",
     "table": "/html/body/div[2]/div[3]/div[2]/div[2]/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_js_url", "", "", "date"],
@@ -47,6 +53,7 @@
   },
   "royal_tombs_notice": {
     "source_prefix": "rt-n",
+    "domain": "https://royaltombs.cha.go.kr",
     "url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1085&mn=RT_04_01&pageIndex=",
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
@@ -54,6 +61,7 @@
   },
   "royal_tombs_events": {
     "source_prefix": "rt-e",
+    "domain": "https://royaltombs.cha.go.kr",
     "url": "https://royaltombs.cha.go.kr/cop/bbs/selectKPboardList.do?bbsId=BBSMSTR_1088&mn=RT_04_04&pageIndex=",
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
