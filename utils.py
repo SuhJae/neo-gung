@@ -84,6 +84,25 @@ class HTMLCleaner:
                 if len(images) == 1 and is_table_otherwise_empty(table):
                     table.replace_with(images[0])
 
+    def simplify_tag_stacking(self):
+        """
+        Simplify identical nested tags.
+        For example, <b><b>text</b></b> becomes <b>text</b>.
+        """
+
+        # Recursively simplify tags in the soup
+        def simplify_tag(tag):
+            for child in tag.contents:
+                if not isinstance(child, NavigableString):
+                    simplify_tag(child)
+
+                    # Check if the child tag is the same as the parent tag
+                    if child.name == tag.name:
+                        child.unwrap()
+
+        for tag in self.soup.find_all(True):  # Find all tags
+            simplify_tag(tag)
+
     def clean_html(self, html_content, origin) -> str:
         self.soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -118,14 +137,10 @@ class HTMLCleaner:
         for span in self.soup.find_all('span'):
             span.unwrap()
 
-        # Call the function to merge adjacent tags
         self.merge_formatting_tags(self.soup)
-
-        # Extract single images from tables
         self.extract_single_image_from_tables()
-
-        # Remove empty tags
         self.remove_empty_tags()
+        self.simplify_tag_stacking()
 
         # Prepare minimal HTML structure
         minimal_html = self.soup.new_tag('html')
