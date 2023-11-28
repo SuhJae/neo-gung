@@ -41,12 +41,45 @@ class HTMLCleaner:
         """
         if hasattr(self, 'soup'):
             for tag in self.soup.find_all():
-                if not tag.get_text(strip=True):
-                    tag.decompose()
+                if tag.name not in ['img', 'br']:
+                    # check for empty tags
+                    if not tag.get_text(strip=True):
+                        tag.decompose()
+                    # check for zero width space
+                    if tag.get_text(strip=True) == '\u200b':
+                        tag.decompose()
         else:
             raise AttributeError("Soup object not found in class instance.")
 
-    def clean_html(self, html_content) -> str:
+    def extract_single_image_from_tables(self):
+        """
+        Extract and replace tables that contain only a single image tag with that image tag.
+        """
+        if hasattr(self, 'soup'):
+            tables = self.soup.find_all('table')
+            for table in tables:
+                images = table.find_all('img')
+                if len(images) == 1 and self.is_table_otherwise_empty(table):
+                    table.replace_with(images[0])
+
+    def is_table_otherwise_empty(self, table):
+        """
+        Check if a table contains only one image and no other significant content.
+        """
+        if not table:
+            return False
+
+        text_content = table.get_text(strip=True)
+        if text_content:
+            return False  # The table has text content
+
+        non_empty_tags = [tag for tag in table.find_all(True) if tag.name not in ['img', 'tr', 'td', 'tbody']]
+        if non_empty_tags:
+            return False  # The table has other non-empty tags
+
+        return True
+
+    def clean_html(self, html_content, origin) -> str:
         self.soup = BeautifulSoup(html_content, 'html.parser')
 
         # Remove scripts, styles, and non-essential attributes
@@ -55,9 +88,15 @@ class HTMLCleaner:
         # Remove or unwrap unnecessary tags and attributes
         for tag in self.soup.find_all():
             if tag.name == 'a':
-                tag.attrs = {'href': tag.get('href')}  # Keep href attribute for 'a' tags
+                tag.attrs = {'href': origin + tag.get('href')}  # Keep href attribute for 'a' tags
             elif tag.name == 'img':
-                tag.attrs = {'src': tag.get('src')}  # Keep src attribute for 'img' tags
+                # check the src has http or https
+                if tag.get('src').startswith('http'):
+                    # Just keep the src and alt attributes
+                    tag.attrs = {'src': tag.get('src'), 'alt': tag.get('alt')}
+                else:
+                    # Add the origin to the src and alt attributes
+                    tag.attrs = {'src': origin + tag.get('src'), 'alt': tag.get('alt')}
             else:
                 tag.attrs = {}
 
@@ -71,6 +110,9 @@ class HTMLCleaner:
 
         # Call the function to merge adjacent tags
         self.merge_formatting_tags(self.soup)
+
+        # Extract single images from tables
+        self.extract_single_image_from_tables()
 
         # Remove empty tags
         self.remove_empty_tags()
@@ -89,4 +131,7 @@ class HTMLCleaner:
         result_html = str(minimal_html)
         # normalize spaces using regex
         result_html = re.sub(r"\s+", " ", result_html)
+        # remove comments
+        result_html = re.sub(r"<!--.*?-->", "", result_html)
+
         return result_html
