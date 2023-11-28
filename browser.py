@@ -23,6 +23,7 @@ class BaseCrawler:
         self.headless = headless
         self.no_images = no_images
         self.keep_window = keep_window
+        self.tab_handl_id = 0
 
         options = Options()
         if headless:
@@ -41,10 +42,41 @@ class BaseCrawler:
 
     def close_driver(self) -> None:
         """
-        Close the driver
+        quit the chrome driver
         :return: None
         """
-        self.driver.close()
+        self.driver.quit()
+
+    def close_current_tab(self) -> None:
+        """
+        Close the current tab unless it is the last tab
+        If it is the last tab, go to home page
+        :return: None
+        """
+        if len(self.driver.window_handles) > 1:
+            self.driver.close()
+        else:
+            self.driver.get("about:blank")
+
+    def switch_to_tab(self, tab_handle: str) -> None:
+        """
+        Switch to the tab with the given handle
+        :param tab_handle: handle of the tab to switch to
+        :return: None
+        """
+        self.driver.switch_to.window(tab_handle)
+
+    def get_url_in_new_tab(self, url: str, tab_handle: str = None) -> str:
+        """
+        Get the url in a new tab
+        :param url: url to get
+        :return: handle of the new tab
+        """
+        if tab_handle is None:
+            tab_handle = "t" + str(self.tab_handl_id)
+        self.driver.execute_script(f"window.open('{url}', '{tab_handle}')")
+        self.tab_handl_id += 1
+        return tab_handle
 
     def get(self, url: str) -> None:
         """
@@ -62,6 +94,20 @@ class BaseCrawler:
         :return: element object for selenium
         """
         return WebDriverWait(self.driver, timeout).until(ec.presence_of_element_located((By.XPATH, element_xpath)))
+
+    def element_from_xpath_exists(self, element_xpath: str) -> bool:
+        """
+        Check if the element exists right now
+        :param element_xpath: xpath of the element to check
+        :return: True if the element exists, False otherwise
+        """
+        try:
+            elements = self.driver.find_elements(By.XPATH, element_xpath)
+            return len(elements) > 0
+        except Exception as e:
+            # Handle any exceptions, such as invalid XPath or WebDriver exceptions
+            log.error(f"Error checking elements existence: {e}")
+            return False
 
     def click_by_xpath(self, element_xpath: str, timeout: int = 10, max_retries: int = 5) -> bool:
         """

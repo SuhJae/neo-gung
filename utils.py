@@ -2,6 +2,24 @@ from bs4 import BeautifulSoup, NavigableString
 import re
 
 
+def is_table_otherwise_empty(table):
+    """
+    Check if a table contains only one image and no other significant content.
+    """
+    if not table:
+        return False
+
+    text_content = table.get_text(strip=True)
+    if text_content:
+        return False  # The table has text content
+
+    non_empty_tags = [tag for tag in table.find_all(True) if tag.name not in ['img', 'tr', 'td', 'tbody']]
+    if non_empty_tags:
+        return False  # The table has other non-empty tags
+
+    return True
+
+
 class HTMLCleaner:
     def __init__(self):
         self.soup = None
@@ -41,6 +59,10 @@ class HTMLCleaner:
         """
         if hasattr(self, 'soup'):
             for tag in self.soup.find_all():
+                # check if there are no images or line as a child
+                if tag.find_all(['img', 'br']):
+                    break
+                # check if there are no text as a child
                 if tag.name not in ['img', 'br']:
                     # check for empty tags
                     if not tag.get_text(strip=True):
@@ -59,25 +81,8 @@ class HTMLCleaner:
             tables = self.soup.find_all('table')
             for table in tables:
                 images = table.find_all('img')
-                if len(images) == 1 and self.is_table_otherwise_empty(table):
+                if len(images) == 1 and is_table_otherwise_empty(table):
                     table.replace_with(images[0])
-
-    def is_table_otherwise_empty(self, table):
-        """
-        Check if a table contains only one image and no other significant content.
-        """
-        if not table:
-            return False
-
-        text_content = table.get_text(strip=True)
-        if text_content:
-            return False  # The table has text content
-
-        non_empty_tags = [tag for tag in table.find_all(True) if tag.name not in ['img', 'tr', 'td', 'tbody']]
-        if non_empty_tags:
-            return False  # The table has other non-empty tags
-
-        return True
 
     def clean_html(self, html_content, origin) -> str:
         self.soup = BeautifulSoup(html_content, 'html.parser')
@@ -88,7 +93,12 @@ class HTMLCleaner:
         # Remove or unwrap unnecessary tags and attributes
         for tag in self.soup.find_all():
             if tag.name == 'a':
-                tag.attrs = {'href': origin + tag.get('href')}  # Keep href attribute for 'a' tags
+                if tag.get('href').startswith('http'):
+                    # Just keep the href attribute for 'a' tags and open in new tab
+                    tag.attrs = {'href': tag.get('href'), 'target': '_blank'}
+                else:
+                    # Add the origin to the href attribute for 'a' tags
+                    tag.attrs = {'href': origin + tag.get('href'), 'target': '_blank'}
             elif tag.name == 'img':
                 # check the src has http or https
                 if tag.get('src').startswith('http'):

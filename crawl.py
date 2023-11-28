@@ -1,3 +1,5 @@
+import time
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -6,7 +8,6 @@ from utils import HTMLCleaner
 from browser import BaseCrawler
 from models import *
 
-from typing import Callable, Dict
 import json
 import re
 
@@ -23,7 +24,7 @@ class GungCrawler(BaseCrawler):
         """
         super().__init__(headless, no_images, keep_window)
         self.config = self.load_config(config_key)
-        self.constants = self.load_config("constants")
+        self.last_article_id_cache = None
 
     @staticmethod
     def load_config(config_key):
@@ -56,7 +57,7 @@ class GungCrawler(BaseCrawler):
                 raise ValueError("Invalid JavaScript call format")
 
             # domain + js_url
-            base_url = self.config["domain"] + self.constants["js_url"]
+            base_url = self.config["domain"] + self.config["js_url"]
             return base_url + argument_match.group(1)
 
         table_data = []
@@ -106,8 +107,10 @@ class GungCrawler(BaseCrawler):
         Fetch the last article id of the website
         :return: last article id
         """
-        table = self.fetch_main()
-        return table[0].article_id
+        if not self.last_article_id_cache:
+            table = self.fetch_main()
+            self.last_article_id_cache = table[0].article_id
+        return self.last_article_id_cache
 
     def last_page_number(self) -> int:
         """
@@ -168,6 +171,7 @@ class GungCrawler(BaseCrawler):
         :raises: ValueError if the article id is less than 1.
         :raises: OutOfBoundsException if the article id is out of bounds.
         """
+
         if article_id < 1:
             raise ValueError("Article ID must be greater than 0")
         if article_id > self.last_article_id():
@@ -176,7 +180,7 @@ class GungCrawler(BaseCrawler):
         master_list = []
         for page in range(1, max_ceiling + 1):
             master_list += self.fetch_article_list(page)
-            if master_list[-1].article_id < article_id:
+            if master_list[-1].article_id <= article_id:
                 break
 
         # delete articles after the article id
@@ -194,6 +198,7 @@ class GungCrawler(BaseCrawler):
         :return: article body in minimal HTML structure
         """
         self.get(url)
+        # get innerHTML and textContent of the article container
         article_html = self.element_from_xpath(self.config["article_container"]).get_attribute("innerHTML")
         # Clean HTML using HTMLCleaner
         clean_html = HTMLCleaner().clean_html(article_html, self.config["domain"])
@@ -208,6 +213,41 @@ class GungCrawler(BaseCrawler):
         article_body = self.get_article_body(item.url)
         return Article(source_prefix=self.config["source_prefix"], article_id=item.article_id, source_url=item.url,
                        title=item.title, time=item.time, content=article_body)
+
+    def get_articles(self, items: list[PreviewItem], max_workers: int = 5) -> list[Article]:
+        article_list = []
+        tabs = []
+        item_index = 0
+
+        max_workers = min(max_workers, len(items))
+
+        # Open initial tabs
+        for i in range(max_workers):
+            if i < len(items):
+                tabs.append(self.get_url_in_new_tab(items[item_index].url, str(item_index)))
+                item_index += 1
+
+        while len(tabs) > 0:
+            self.switch_to_tab(tabs[0])
+            if self.element_from_xpath_exists(self.config["article_container"]):
+                article_list.append(self.get_article(items[int(tabs[0])]))
+
+                # close the current tab
+                self.close_current_tab()
+                del tabs[0]
+
+                # open a new tab if there are more items
+                if item_index < len(items):
+                    self.switch_to_tab(tabs[0])
+                    tabs.append(self.get_url_in_new_tab(items[item_index].url, str(item_index)))
+                    item_index += 1
+            else:
+                # move the first item to the end of the list
+                tabs.append(tabs[0])
+                del tabs[0]
+
+        time.sleep(1)
+        return article_list
 
 
 class GyeongbokgungCrawler(GungCrawler):
@@ -257,8 +297,8 @@ if __name__ == "__main__":
     # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
     with GyeongbokgungCrawler() as crawler:
-        result = crawler.fetch_article_until(954)
+        result = crawler.fetch_article_list_range(1, 2)
+        articles = crawler.get_articles(result, max_workers=5)
 
-        for item in result:
-            document = crawler.get_article(item)
+        for document in articles:
             print(document)
