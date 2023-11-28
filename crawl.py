@@ -196,7 +196,7 @@ class GungCrawler(BaseCrawler):
         self.get(url)
         article_html = self.element_from_xpath(self.config["article_container"]).get_attribute("innerHTML")
         # Clean HTML using HTMLCleaner
-        clean_html = HTMLCleaner().clean_html(article_html)
+        clean_html = HTMLCleaner().clean_html(article_html, self.config["domain"])
         return clean_html
 
     def get_article(self, item: PreviewItem) -> Article:
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
     with GyeongbokgungCrawler() as crawler:
-        result = crawler.fetch_article_list_range(1, 2)
+        result = crawler.fetch_article_until(954)
 
         for item in result:
             document = crawler.get_article(item)
