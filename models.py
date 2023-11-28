@@ -25,10 +25,10 @@ class Article:
                 "Invalid source prefix. It must be one of: 'cdg', 'cgg', 'dsg-e', 'dsg-j', 'dsg-n', 'gbg', 'jm'.")
 
         if not article_id or not isinstance(article_id, int) or article_id < 1:
-            raise ValueError("Invalid article ID. It must be a positive integer.")
+            raise ValueError(f"Invalid article ID. It must be a positive integer: {article_id}")
 
         if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
-            raise ValueError("Invalid time. It must be in the YYYY-MM-DD format.")
+            raise ValueError(f"Invalid time. It must be in the YYYY-MM-DD format: {time}")
 
         self.source_prefix = source_prefix
         self.article_id = article_id
@@ -46,7 +46,7 @@ class Article:
 
 
 class PreviewItem:
-    def __init__(self, article_id: int, title: str, url: str, time: str):
+    def __init__(self, article_id: int = None, title: str = None, url: str = None, time: str = None):
         """
         Initialize a new board entry item instance.
 
@@ -59,16 +59,39 @@ class PreviewItem:
         :raises ValueError: If the `time` is not in the YYYY-MM-DD format.
         """
 
-        if not article_id or not isinstance(article_id, int) or article_id < 1:
-            raise ValueError("Invalid article ID. It must be a positive integer.")
-
-        if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
-            raise ValueError("Invalid time. It must be in the YYYY-MM-DD format.")
-
         self.article_id = article_id
         self.title = title
         self.url = url
         self.time = time
+
+    def set_title(self, title: str):
+        self.title = title
+
+    def set_url(self, url: str):
+        self.url = url
+
+    def set_time(self, time: str):
+        self.time = time
+
+    def set_article_id(self, article_id: int):
+        self.article_id = article_id
+
+    def is_valid(self) -> bool:
+        """
+        Validate the preview item.
+        :return: True if the preview item is valid, and exists. False otherwise.
+        """
+
+        if not self.title or not self.url or not self.time:
+            return False
+
+        if not self.article_id or not isinstance(self.article_id, int) or self.article_id < 1:
+            return False
+
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", self.time) is None:
+            return False
+
+        return True
 
     def __str__(self):
         return f"Article ID: {self.article_id}\n" \
@@ -76,7 +99,7 @@ class PreviewItem:
                f"URL: {self.url}\n" \
                f"Time: {self.time}\n"
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "article_id": self.article_id,
             "title": self.title,

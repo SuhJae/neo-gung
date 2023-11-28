@@ -44,7 +44,7 @@ class GungCrawler(BaseCrawler):
         if not all(col_type in valid_column_types for col_type in column_type):
             raise ValueError("Invalid column type.")
 
-        def parse_js_url(column: WebElement) -> Dict[str, str]:
+        def parse_js_url(column: WebElement) -> str:
             """
             Get the emulated URL from the JavaScript call
             :param column: column object
@@ -57,33 +57,15 @@ class GungCrawler(BaseCrawler):
 
             # domain + js_url
             base_url = self.config["domain"] + self.constants["js_url"]
-            print(base_url)
-            return {"title": column.text, "url": base_url + argument_match.group(1)}
-
-        # Parsing functions
-        def parse_article_id(column: WebElement) -> Dict[str, int]:
-            return {"article_id": int(column.text)}
-
-        def parse_title_url(column: WebElement) -> Dict[str, str]:
-            return {"title": column.text, "url": column.find_element(By.TAG_NAME, "a").get_attribute("href")}
-
-        def parse_date(column: WebElement) -> Dict[str, str]:
-            return {"date": column.text}
-
-        # Map column types to their respective parsing functions
-        column_parsers: Dict[str, Callable[[WebElement], any]] = {
-            "article_id": parse_article_id,
-            "title_url": parse_title_url,
-            "title_js_url": parse_js_url,
-            "date": parse_date
-        }
+            return base_url + argument_match.group(1)
 
         table_data = []
 
         # Iterate through table rows
         for row in table_object.find_elements(By.TAG_NAME, "tr"):
-            row_data = {}
             columns = row.find_elements(By.XPATH, "./*")
+
+            rowitem = PreviewItem()
 
             for i, col_type in enumerate(column_type):
                 log.debug(f"{i} Column type: {col_type}")
@@ -93,17 +75,21 @@ class GungCrawler(BaseCrawler):
                 if col_type == "":
                     continue
                 try:
-                    row_data.update(column_parsers[col_type](columns[i]))
+                    if col_type == "title_js_url":
+                        rowitem.set_title(columns[i].text)
+                        rowitem.set_url(parse_js_url(columns[i]))
+                    if col_type == "title_url":
+                        rowitem.set_url(columns[i].find_element(By.TAG_NAME, "a").get_attribute("href"))
+                        rowitem.set_title(columns[i].text)
+                    if col_type == "article_id":
+                        rowitem.set_article_id(int(columns[i].text))
+                    if col_type == "date":
+                        rowitem.set_time(columns[i].text)
                 except Exception as e:
                     log.debug(f"Invalid row. Error: {e}")
-                    row_data = {}
                     break
-
-            if row_data:
-                table_data.append(
-                    PreviewItem(article_id=row_data["article_id"], title=row_data["title"], url=row_data["url"],
-                                time=row_data["date"]))
-
+            if rowitem.is_valid():
+                table_data.append(rowitem)
         return table_data
 
     def fetch_main(self) -> list[PreviewItem]:
@@ -148,7 +134,7 @@ class GungCrawler(BaseCrawler):
         list_table = self.element_from_xpath(self.config["table"])
         return self.parse_table(list_table, self.config["table_column"])
 
-    def fetch_article_list_range(self, page_start: int = 1, page_end: int = None) -> list[dict]:
+    def fetch_article_list_range(self, page_start: int = 1, page_end: int = None) -> list[PreviewItem]:
         """
         Fetch the article list page of the website in a range.
         :param page_start: starting page number to fetch (inclusive).
@@ -173,7 +159,7 @@ class GungCrawler(BaseCrawler):
             master_list += self.fetch_article_list(page)
         return master_list
 
-    def fetch_article_until(self, article_id: int, max_ceiling: int = 500) -> list[dict]:
+    def fetch_article_until(self, article_id: int, max_ceiling: int = 500) -> list[PreviewItem]:
         """
         Fetch the article list page of the website until the article id is found.
         :param article_id: article id to search for
@@ -190,12 +176,12 @@ class GungCrawler(BaseCrawler):
         master_list = []
         for page in range(1, max_ceiling + 1):
             master_list += self.fetch_article_list(page)
-            if master_list[-1]["article_id"] <= article_id:
+            if master_list[-1].article_id < article_id:
                 break
 
         # delete articles after the article id
         for i, article in enumerate(master_list):
-            if article["article_id"] < article_id:
+            if article.article_id < article_id:
                 del master_list[i:]
                 break
 
@@ -271,7 +257,8 @@ if __name__ == "__main__":
     # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
     with GyeongbokgungCrawler() as crawler:
-        result = crawler.fetch_main()
-        arti = crawler.get_article(result[0])
+        result = crawler.fetch_article_list_range(1, 2)
 
-    print(arti)
+        for item in result:
+            document = crawler.get_article(item)
+            print(document)
