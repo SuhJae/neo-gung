@@ -180,6 +180,7 @@ class GungCrawler(BaseCrawler):
 
         master_list = []
         for page in range(1, max_ceiling + 1):
+            log.info(f"Fetching page {page}")
             master_list += self.fetch_article_list(page)
             if master_list[-1].article_id <= article_id:
                 break
@@ -212,6 +213,7 @@ class GungCrawler(BaseCrawler):
         :return: Article object
         """
         article_body = self.get_article_body(item.url)
+
         return Article(source_prefix=self.config["source_prefix"], article_id=item.article_id, source_url=item.url,
                        title=item.title, time=item.time, content=article_body)
 
@@ -225,6 +227,7 @@ class GungCrawler(BaseCrawler):
         # Open initial tabs
         for i in range(max_workers):
             if i < len(items):
+                log.info(f"Gathering article {items[i].article_id}")
                 tabs.append(self.get_url_in_new_tab(items[item_index].url, str(item_index)))
                 item_index += 1
 
@@ -240,6 +243,7 @@ class GungCrawler(BaseCrawler):
                 # open a new tab if there are more items
                 if item_index < len(items):
                     self.switch_to_tab(tabs[0])
+                    log.info(f"Gathering article {items[item_index].article_id}")
                     tabs.append(self.get_url_in_new_tab(items[item_index].url, str(item_index)))
                     item_index += 1
             else:
@@ -300,7 +304,7 @@ if __name__ == "__main__":
     db = DatabaseManager()
 
     with GyeongbokgungCrawler() as crawler:
-        result = crawler.fetch_article_list_range(1, 2)
+        result = crawler.fetch_article_until(1)
         articles = crawler.get_articles(result, max_workers=5)
 
         for document in articles:
@@ -308,4 +312,3 @@ if __name__ == "__main__":
                 log.info(f"Article inserted: {document.article_id}")
             else:
                 log.error(f"Failed to insert article: {document.article_id}")
-

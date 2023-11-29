@@ -31,12 +31,14 @@ services:
       - mongo-data:/data/db
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    build:
+      context: elasticsearch
+      dockerfile: Dockerfile
     environment:
       - discovery.type=single-node
+      - xpack.security.enabled=false
     ports:
       - "9200:9200"
-      - "9300:9300"
     volumes:
       - es-data:/usr/share/elasticsearch/data
 

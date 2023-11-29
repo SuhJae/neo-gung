@@ -120,7 +120,7 @@ class HTMLCleaner:
 
         # Remove or unwrap unnecessary tags and attributes
         for tag in self.soup.find_all():
-            if tag.name == 'a':
+            if tag.name == 'a' and tag.get('href'):  # Check if the tag is an 'a' tag and has an href attribute
                 if tag.get('href').startswith('http'):
                     # Just keep the href attribute for 'a' tags and open in new tab
                     tag.attrs = {'href': tag.get('href'), 'target': '_blank'}

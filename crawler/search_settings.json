@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "synonym_filter": {
+          "type": "synonym",
+          "synonyms": [
+            "palaces, castles, estates, mansions, residences, homes, dwellings, courts, fortresses, chateaus",
+            "events, happenings, occurrences, updates, news, affairs, festivities, gatherings, celebrations, functions",
+            "hours, timings, schedules, periods, sessions, intervals, spans, durations, shifts, windows",
+            "tours, excursions, trips, journeys, visits, explorations, travels, expeditions, treks, adventures",
+            "Seoul, metropolis, capital, city, hub, center, municipality, urban, cosmopolis, polis",
+            "sites, landmarks, spots, places, locales, areas, locations, settings, scenes, territories",
+            "attractions, highlights, features, draws, points, interests, marvels, wonders, spectacles, landmarks",
+            "heritage, history, legacy, tradition, culture, past, ancestry, roots, background, inheritance",
+            "궁궐, 성, 재산, 저택, 거주지, 집, 주거지, 법정, 요새, 샤토",
+            "이벤트, 사건, 발생, 업데이트, 뉴스, 일, 축제, 모임, 기념, 기능",
+            "시간, 타이밍, 일정, 기간, 세션, 간격, 스팬, 기간, 교대",
+            "투어, 여행, 여정, 방문, 탐험, 여행, 원정, 트레킹, 모험",
+            "서울, 대도시, 수도, 도시, 허브, 센터, 지방 자치 단체, 도시, 세계 도시, 폴리스",
+            "장소, 랜드마크, 명소, 지역, 지역, 장소, 위치, 설정, 장면, 영역",
+            "명소, 하이라이트, 특징, 드로우, 포인트, 관심, 경이, 경이, 볼거리, 랜드마크",
+            "유산, 역사, 유산, 전통, 문화, 과거, 조상, 뿌리, 배경, 상속",
+            "관람, 개장, 운영"
+          ]
+        }
+      },
+      "analyzer": {
+        "korean": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": [
+            "synonym_filter"
+          ]
+        }
+      }
+    }
+  }
+}
