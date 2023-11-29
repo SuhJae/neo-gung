@@ -28,6 +28,15 @@ class HTMLCleaner:
         """Set the soup object from HTML content."""
         self.soup = BeautifulSoup(html_content, 'html.parser')
 
+    def html_to_text(self, html_content: str) -> str:
+        """
+        Extracts only the text from the HTML content.
+        :param html_content: HTML content to extract text from.
+        :return: Extracted text.
+        """
+        self.set_soup(html_content)
+        return self.soup.get_text()
+
     def merge_formatting_tags(self, soup):
         """
         Merge adjacent formatting tags (like <b>, <i>, <strong>, etc.) if they are redundant.

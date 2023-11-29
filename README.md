@@ -13,13 +13,5 @@ So I decided to remake the backend worker from scratch, but this time with prope
 
 ## 2. Structure
 
-**[log_manager.py](log_manager.py)**: The logging manager that handles all the logging stuffs.
-- ColoredFormatter: The formatter that adds colors to the log messages.
-- LogManager: The logging manager that handles all the logging stuffs.
-
-**[crawl.py](crawl.py)**: The crawling module that handles all the crawling data from the web.
+**[crawl.py](crawler/crawl.py)**: The crawling module that handles all the crawling data from the web.
 - BaseCrawler: Includes common crawling logic from initializing the driver to commonly used crawling methods such as `element_from_xpath` and `click_by_xpath`.
-- SiteACrawler: The crawler for the site A. (planned)
-- SiteBCrawler: The crawler for the site B. (planned)
-- Article: The article class that contains the data of the article. This will improve maintainability and readability of the code then just using the dictionary and prone to errors caused by typos.
-

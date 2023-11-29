@@ -3,10 +3,11 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from log_manager import Logger, log
-from utils import HTMLCleaner
-from browser import BaseCrawler
-from models import *
+from crawler.log_manager import Logger, log
+from crawler.utils import HTMLCleaner
+from crawler.browser import BaseCrawler
+from crawler.models import *
+from crawler.db import DatabaseManager
 
 import json
 import re
@@ -296,9 +297,15 @@ if __name__ == "__main__":
     # article_url = input("URL: ")
     # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
 
+    db = DatabaseManager()
+
     with GyeongbokgungCrawler() as crawler:
         result = crawler.fetch_article_list_range(1, 2)
         articles = crawler.get_articles(result, max_workers=5)
 
         for document in articles:
-            print(document)
+            if db.insert_article(document):
+                log.info(f"Article inserted: {document.article_id}")
+            else:
+                log.error(f"Failed to insert article: {document.article_id}")
+
