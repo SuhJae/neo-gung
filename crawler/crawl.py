@@ -1,13 +1,16 @@
+import os
 import time
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from crawler.log_manager import Logger, log
-from crawler.utils import HTMLCleaner
+from crawler.utils import HTMLCleaner, no_stopword
 from crawler.browser import BaseCrawler
 from crawler.models import *
 from crawler.db import DatabaseManager
+from formatting import format_notice
+from typing import Union
 
 import json
 import re
@@ -25,6 +28,7 @@ class GungCrawler(BaseCrawler):
         """
         super().__init__(headless, no_images, keep_window)
         self.config = self.load_config(config_key)
+        self.config_key = config_key
         self.last_article_id_cache = None
 
     @staticmethod
@@ -193,26 +197,60 @@ class GungCrawler(BaseCrawler):
 
         return master_list
 
-    def get_article_body(self, url: str) -> str:
+    def fetch_article_in_range(self, article_id_start: int, article_id_end: int) -> list[PreviewItem]:
+        """
+        Fetch the article list page of the website in a range.
+        :param article_id_start: starting article id to fetch (inclusive).
+        :param article_id_end: ending article id to fetch (inclusive).
+        :return: list of PreviewItems
+        """
+
+        if article_id_start < 1 or article_id_end < 1:
+            raise ValueError("Article IDs must be greater than 0")
+        if article_id_start > article_id_end:
+            raise ValueError("Starting article ID cannot be greater than the ending article ID")
+        if article_id_end > self.last_article_id():
+            raise ValueError(f"Ending article ID is out of bounds. Last article ID: {self.last_article_id()}")
+
+        master_list = []
+
+        # calculate the page number for the starting and ending articles
+        initial_page = (self.last_article_id() - article_id_end) // self.config["articles_per_page"] + 1
+        final_page = (self.last_article_id() - article_id_start) // self.config["articles_per_page"] + 1
+
+        # fetch the articles in the range
+        for page in range(initial_page, final_page + 1):
+            log.info(f"Fetching page {page}")
+            master_list += self.fetch_article_list(page)
+
+        # filter out articles outside the desired ID range
+        master_list = [article for article in master_list if article_id_start <= article.article_id <= article_id_end]
+
+        return master_list
+
+    def get_article_body(self, url: str, load_page: bool = True) -> str:
         """
         Get the article body from the url with the minimal HTML structure
         :param url: url of the article
+        :param load_page: if True, load the page before getting the article body
         :return: article body in minimal HTML structure
         """
-        self.get(url)
+        if load_page:
+            self.get(url)
         # get innerHTML and textContent of the article container
         article_html = self.element_from_xpath(self.config["article_container"]).get_attribute("innerHTML")
         # Clean HTML using HTMLCleaner
-        clean_html = HTMLCleaner().clean_html(article_html, self.config["domain"])
+        clean_html = HTMLCleaner().html_to_markdown(article_html, self.config["domain"])
         return clean_html
 
-    def get_article(self, item: PreviewItem) -> Article:
+    def get_article(self, item: PreviewItem, load_page: bool = True) -> Article:
         """
         Get the article from the PreviewItem
         :param item: PreviewItem object
+        :param load_page: if True, load the page before getting the article body
         :return: Article object
         """
-        article_body = self.get_article_body(item.url)
+        article_body = self.get_article_body(item.url, load_page)
 
         return Article(source_prefix=self.config["source_prefix"], article_id=item.article_id, source_url=item.url,
                        title=item.title, time=item.time, content=article_body)
@@ -234,7 +272,7 @@ class GungCrawler(BaseCrawler):
         while len(tabs) > 0:
             self.switch_to_tab(tabs[0])
             if self.element_from_xpath_exists(self.config["article_container"]):
-                article_list.append(self.get_article(items[int(tabs[0])]))
+                article_list.append(self.get_article(items[int(tabs[0])], False))
 
                 # close the current tab
                 self.close_current_tab()
@@ -253,6 +291,21 @@ class GungCrawler(BaseCrawler):
 
         time.sleep(1)
         return article_list
+
+    def get_cache(self, article: PreviewItem) -> Union[Article, None]:
+        """
+        Get the cache of the article from local storage (cache folder)
+        :param article: Article object
+        :return: cache of the article
+        """
+        # check if the article is cached
+        if not os.path.exists(f"cache/{self.config_key}/{article.article_id}.md"):
+            # if not, get the article and cache it
+            return None
+
+        with open(f"cache/{self.config_key}/{article.article_id}.md", "r", encoding="utf-8") as f:
+            return Article(source_prefix=self.config["source_prefix"], article_id=article.article_id,
+                           source_url=article.url, title=article.title, time=article.time, content=f.read())
 
 
 class GyeongbokgungCrawler(GungCrawler):
@@ -295,20 +348,33 @@ class RoyalTombsEventsCrawler(GungCrawler):
         super().__init__("royal_tombs_events", headless, no_images, keep_window)
 
 
+def save_to_cache():
+    with ChangdeokgungCrawler() as crawler:
+        result = crawler.fetch_article_in_range(1, 296)
+        articles = crawler.get_articles(result, max_workers=10)
+
+        for document in articles:
+            if len(document.content) > 16000:
+                log.info(f"Skipping article {document.article_id} due to length")
+            elif not no_stopword(document.content):
+                log.info(f"Skipping article {document.article_id} due to stopword")
+            else:
+                log.info(f"Formatting article {document.article_id}")
+                formatted = format_notice(document.content)
+
+                with open(f"cache/changdeokgung/{document.article_id}.md", "w", encoding="utf-8") as f:
+                    f.write(formatted)
+
+
 if __name__ == "__main__":
     Logger(debug=False)
-
-    # article_url = input("URL: ")
-    # article_url = "https://www.royalpalace.go.kr/content/board/view.asp?seq=970&page=&c1=&c2="
-
     db = DatabaseManager()
+    db.setup_elasticsearch()
 
     with GyeongbokgungCrawler() as crawler:
         result = crawler.fetch_article_until(1)
-        articles = crawler.get_articles(result, max_workers=5)
-
-        for document in articles:
-            if db.insert_article(document):
-                log.info(f"Article inserted: {document.article_id}")
-            else:
-                log.error(f"Failed to insert article: {document.article_id}")
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)

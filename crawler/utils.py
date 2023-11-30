@@ -1,5 +1,22 @@
 from bs4 import BeautifulSoup, NavigableString
+from markdownify import markdownify as mdf
 import re
+from typing import Union
+
+with open("stopwords.txt", "r") as f:
+    stopwords = f.read().splitlines()
+
+
+def no_stopword(text: str) -> bool:
+    """
+    Check if any of the stopwords are in the text.
+    :param text: Text to check.
+    :return: True if no stopwords are in the text, False otherwise.
+    """
+    for word in stopwords:
+        if word in text:
+            return False
+    return True
 
 
 def is_table_otherwise_empty(table):
@@ -18,6 +35,53 @@ def is_table_otherwise_empty(table):
         return False  # The table has other non-empty tags
 
     return True
+
+
+def convert_html_table_to_markdown(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = soup.find_all('table')
+
+    for table in tables:
+        if not table.find('thead') and not table.find_all('th'):
+            first_row = table.find('tr')
+            header_cells = first_row.find_all('td')
+            for cell in header_cells:
+                cell.name = 'th'  # Convert first row cells to header cells
+
+    markdown = mdf(str(soup))
+    return markdown
+
+
+def strip_markdown(md_string: str) -> Union[str, None]:
+    """
+    Strip markdown from a string and return plain text.
+
+    :param md_string: A string containing markdown content.
+    :return: A string with markdown formatting removed, or None if input is None.
+    """
+    if md_string is None:
+        return None
+
+    # Remove images
+    md_string = re.sub(r'!\[.*?]\(.*?\)', '', md_string)
+    # Remove links, keeping the text
+    md_string = re.sub(r'\[(.*?)]\(.*?\)', r'\1', md_string)
+    # Remove bold and italic formatting
+    md_string = re.sub(r'\*\*(.*?)\*\*|\*(.*?)\*|__(.*?)__|_(.*?)_', r'\1\2\3\4', md_string)
+    # Remove inline code and code blocks
+    md_string = re.sub(r'`{1,3}(.*?)`{1,3}', r'\1', md_string)
+    # Remove strikethroughs
+    md_string = re.sub(r'~~(.*?)~~', r'\1', md_string)
+    # Remove headings
+    md_string = re.sub(r'(?m)^\s*#{1,6}\s*', '', md_string)
+    # Remove lists
+    md_string = re.sub(r'^\s*[*+-]\s', '', md_string, flags=re.MULTILINE)
+    # Handle tables by replacing pipes and dashes with new lines
+    md_string = re.sub(r'\|', '\n', md_string)
+    md_string = re.sub(r'(\n-{3,})+', '\n', md_string)
+    # Strip each line and remove empty lines
+    md_string = '\n'.join([line.strip() for line in md_string.splitlines() if line.strip()])
+    return md_string
 
 
 class HTMLCleaner:
@@ -44,10 +108,13 @@ class HTMLCleaner:
         for tag in soup.find_all(['b', 'i', 'strong', 'em']):  # Add more tags if needed
             next_sibling = tag.find_next_sibling()
             if next_sibling and tag.name == next_sibling.name and tag.attrs == next_sibling.attrs:
-                tag.string = (tag.string or '') + (next_sibling.string or '')
-                next_sibling.decompose()
-                # Recursively check for further adjacent tags
-                self.merge_formatting_tags(soup)
+                # check there is no text between the tags
+                if tag.next_sibling and isinstance(tag.next_sibling, NavigableString) and not tag.next_sibling.strip():
+                    # Merge the tags
+                    tag.string = (tag.string or '') + (next_sibling.string or '')
+                    next_sibling.decompose()
+                    # Recursively check for further adjacent tags
+                    self.merge_formatting_tags(soup)
 
     def merge_with_next_sibling(self, tag):
         """
@@ -100,13 +167,13 @@ class HTMLCleaner:
         """
 
         # Recursively simplify tags in the soup
-        def simplify_tag(tag):
-            for child in tag.contents:
+        def simplify_tag(element_tag):
+            for child in element_tag.contents:
                 if not isinstance(child, NavigableString):
                     simplify_tag(child)
 
                     # Check if the child tag is the same as the parent tag
-                    if child.name == tag.name:
+                    if child.name == element_tag.name:
                         child.unwrap()
 
         for tag in self.soup.find_all(True):  # Find all tags
@@ -169,3 +236,21 @@ class HTMLCleaner:
         result_html = re.sub(r"<!--.*?-->", "", result_html)
 
         return result_html
+
+    def html_to_markdown(self, html_content: str, domain: str) -> str:
+        """
+        Converts HTML content to Markdown.
+        :param html_content: HTML content to convert.
+        :param domain: Domain of the website.
+        :return: Converted Markdown content.
+        """
+        refined_html = self.clean_html(html_content, domain)
+        return convert_html_table_to_markdown(refined_html)
+
+
+# example usage
+if __name__ == '__main__':
+    with open('cache/gyeongbokgung/954.md', 'r') as f:
+        markdown_file = strip_markdown(f.read())
+
+    print(markdown_file)

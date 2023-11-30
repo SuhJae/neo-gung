@@ -4,7 +4,7 @@ import json
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient
 from models import *
-from utils import HTMLCleaner
+from utils import strip_markdown
 from log_manager import log
 
 
@@ -32,9 +32,6 @@ class DatabaseManager:
             log.error(f"Error connecting to Elasticsearch server: {e}")
             exit(1)
 
-        with open("stopwords.txt", "r") as f:
-            self.stopwords = f.read().splitlines()
-
     def setup_elasticsearch(self):
         with open("search_settings.json", "r") as f:
             settings = json.load(f)
@@ -57,21 +54,6 @@ class DatabaseManager:
         :param article: Article object to insert.
         :return: True if the insertion was successful, False otherwise.
         """
-        # extract the article's text from html for elastic search
-        article_text = HTMLCleaner().html_to_text(article.content)
-
-        # check if article text includes any of the stopwords
-        # if so, return False
-        for word in article_text.split():
-            if word in self.stopwords:
-                log.info(f"Article {article.article_id} contains stopwords")
-                return True
-
-        for word in article.title.split():
-            if word in self.stopwords:
-                log.info(f"Article {article.article_id} contains stopwords")
-                return True
-
         # convert ISO (YYYY-MM-DD) date to mongoDB date format
         # set the time zone to GMT+9 (Seoul)
         entry_time = datetime.strptime(article.time, "%Y-%m-%d").replace(tzinfo=timezone.utc).astimezone(
@@ -100,6 +82,9 @@ class DatabaseManager:
             log.error(f"Error inserting article: {e}")
             return False
 
+        # extract the article's text from html for elastic search
+        article_text = strip_markdown(article.content)
+
         es_entry = {
             "tag": article.source_prefix,
             "o_id": article.article_id,
@@ -116,15 +101,15 @@ class DatabaseManager:
 
     def search_articles(self, query: str):
         # Define the decay function for the date field
-        # Setting decay to decrease relevance of articles older than now
-        # No boost for articles older than 1 month
+        # This function will give more weight to newer articles
+
         decay_function = {
-            "gauss": {
+            "exp": {
                 "time": {
-                    "origin": datetime.now().isoformat(),
-                    "scale": "30d",  # Time scale of 1 month
-                    "offset": "30d",  # No boost past 1 month
-                    "decay": 0.5  # Adjust decay rate as needed
+                    "origin": "now",
+                    "scale": "60d",
+                    "offset": "60d",
+                    "decay": 0.8
                 }
             }
         }
@@ -159,7 +144,6 @@ class DatabaseManager:
 # Example usage
 if __name__ == "__main__":
     db = DatabaseManager()
-    db.search_articles("test")
 
     terms = input("Search articles: ")
     results = db.search_articles(terms)
@@ -169,3 +153,7 @@ if __name__ == "__main__":
         print(f"Score: {result['_score']}")  # Score is calculated by Elasticsearch
         print(f"Text: {result['_source']['text']}")
         print()
+
+    print("=====================================")
+    print(f"Total results: {results['hits']['total']['value']}")
+    print(f"Took: {results['took']}ms")
