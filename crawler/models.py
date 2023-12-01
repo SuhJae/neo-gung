@@ -2,7 +2,8 @@ import re
 
 
 class Article:
-    def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str):
+    def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
+                 language: str = "ko"):
         """
         Initialize a new article instance.
 
@@ -13,6 +14,7 @@ class Article:
         :param title: Title of the article.
         :param time: Timestamp of the article publication time, in the YYYY-MM-DD format.
         :param content: Main content of the article in markdown format.
+        :param language: Language of the article. Must be one of: "ko" or "en".
 
         :raises ValueError: If the `source_prefix` is not one of the specified valid values.
         :raises ValueError: If the `article_id` is not an integer or less than 1.
@@ -30,12 +32,16 @@ class Article:
         if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
             raise ValueError(f"Invalid time. It must be in the YYYY-MM-DD format: {time}")
 
+        if not language or language not in ["ko", "en"]:
+            raise ValueError(f"Invalid language. It must be one of: 'ko', 'en': {language}")
+
         self.source_prefix = source_prefix
         self.article_id = article_id
         self.url = source_url
         self.title = title
         self.time = time
         self.content = content
+        self.language = language
 
     def __str__(self):
         return f"Article ID: {self.article_id}\n" \

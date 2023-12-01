@@ -353,11 +353,11 @@ class RoyalTombsEventsCrawler(GungCrawler):
         super().__init__("royal_tombs_events", headless, no_images, keep_window)
 
 
-def save_to_cache(crawler):
+def save_to_cache(site_crawler):
     # result = crawler.fetch_article_in_range(270, 280)
-    index_result = crawler.fetch_article_until(1)
+    index_result = site_crawler.fetch_article_until(1)
     # index_result = crawler.fetch_article_list_range(1, 2)
-    articles = crawler.get_articles(index_result, max_workers=5)
+    articles = site_crawler.get_articles(index_result, max_workers=5)
 
     for document in articles:
         if len(document.content) > 16000:
@@ -373,40 +373,80 @@ def save_to_cache(crawler):
                 log.error(f"Error formatting article {document.article_id}: {e}")
                 continue
 
-            with open(f"cache/{crawler.get_config_key()}/{document.article_id}.md", "w", encoding="utf-8") as f:
+            with open(f"cache/{site_crawler.get_config_key()}/{document.article_id}.md", "w", encoding="utf-8") as f:
                 f.write(formatted)
 
 
 if __name__ == "__main__":
     Logger(debug=False)
-    save_to_cache(RoyalTombsNoticeCrawler())
-    save_to_cache(RoyalTombsEventsCrawler())
+    # save_to_cache(RoyalTombsNoticeCrawler())
+    # save_to_cache(RoyalTombsEventsCrawler())
 
-    # db = DatabaseManager()
-    # es = ElasticsearchClient()
+    db = DatabaseManager()
+    es = ElasticsearchClient()
 
     # es.setup_index()
 
-    # with GyeongbokgungCrawler() as crawler:
-    #     result = crawler.fetch_article_until(1)
-    #     for preview_item in result:
-    #         article_item = crawler.get_cache(preview_item)
-    #         if article_item:
-    #             log.info(f"Inserting: {article_item.article_id}")
-    #             db.insert_article(article_item)
-    #
-    # with ChanggyeonggungCrawler() as crawler:
-    #     result = crawler.fetch_article_until(1)
-    #     for preview_item in result:
-    #         article_item = crawler.get_cache(preview_item)
-    #         if article_item:
-    #             log.info(f"Inserting: {article_item.article_id}")
-    #             db.insert_article(article_item)
-    #
-    # with ChangdeokgungCrawler() as crawler:
-    #     result = crawler.fetch_article_until(1)
-    #     for preview_item in result:
-    #         article_item = crawler.get_cache(preview_item)
-    #         if article_item:
-    #             log.info(f"Inserting: {article_item.article_id}")
-    #             db.insert_article(article_item)
+    with GyeongbokgungCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with ChanggyeonggungCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with ChangdeokgungCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with JongmyoCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with DeoksugungEventsCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with DeoksugungNoticeCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with RoyalTombsNoticeCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)
+
+    with RoyalTombsEventsCrawler() as crawler:
+        result = crawler.fetch_article_until(1)
+        for preview_item in result:
+            article_item = crawler.get_cache(preview_item)
+            if article_item:
+                log.info(f"Inserting: {article_item.article_id}")
+                db.insert_article(article_item)

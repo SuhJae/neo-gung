@@ -27,8 +27,10 @@ class DatabaseManager:
         :param article: Article object to insert.
         :return: True if the insertion was successful, False otherwise.
         """
+        if article.language != "ko":
+            log.warning(f"Initial article language is not Korean. Skipping: {article.language}")
+
         # convert ISO (YYYY-MM-DD) date to mongoDB date format
-        # set the time zone to GMT+9 (Seoul)
         entry_time = datetime.strptime(article.time, "%Y-%m-%d").replace(tzinfo=timezone.utc).astimezone(
             tz=timezone(timedelta(hours=9)))
 
@@ -36,40 +38,47 @@ class DatabaseManager:
             "tag": article.source_prefix,
             "o_id": article.article_id,
             "url": article.url,
-            "title": article.title,
             "time": entry_time,
-            "content": article.content,
+            "title": {
+                "ko": article.title,
+            },
+            "content": {
+                "ko": article.content,
+            }
         }
 
-        # check if the article with same tag and o_id already exists and if so, overwrite it
-        db_search = self.db.articles.find_one({"tag": article.source_prefix, "o_id": article.article_id})
-
         try:
-            if db_search:
-                entry_id = self.db.articles.update_one({"tag": article.source_prefix, "o_id": article.article_id},
-                                                       {"$set": entry}).upserted_id
-                log.info(f"Updated article: {article.article_id}")
-            else:
-                entry_id = self.db.articles.insert_one(entry).inserted_id
-        except Exception as e:
-            log.error(f"Error inserting article: {e}")
-            return False
+            # Using upsert to insert if not exists, else update
+            result = self.db.articles.update_one(entry, {"$set": entry}, upsert=True)
 
-        ElasticsearchClient().insert_article(article, entry_id)
+            # Check if it was an insertion or an update
+            if result.upserted_id:
+                log.info(f"Inserted new article: {article.article_id}")
+                entry_id = result.upserted_id
+            else:
+                log.info(f"Updated article: {article.article_id}")
+                entry_id = result.matched_count
+
+            # Continue with Elasticsearch insertion
+            ElasticsearchClient().insert_article(article, entry_id)
+        except Exception as e:
+            # Broad catch for any other exceptions
+            log.error(f"Error in article insertion/updation: {e}")
+            return False
+        return True
 
 
 class ElasticsearchClient:
     def __init__(self):
         self.es = Elasticsearch("http://localhost:9200")
-
         try:
             self.es.ping()
             log.info("Connected to Elasticsearch server")
         except Exception as e:
-            log.error(f"Error connecting to Elasticsearch server: {e}")
+            log.error(f"Failed connecting to Elasticsearch server: {e}")
             exit(1)
 
-    def setup_index(self):
+    def setup_index(self, language: str = 'ko') -> None:
         # Define the settings for the Nori analyzer
         settings = {
             "settings": {
@@ -80,13 +89,15 @@ class ElasticsearchClient:
                                 "type": "custom",
                                 "tokenizer": "nori_tokenizer",
                                 "filter": ["nori_readingform"]
+                            },
+                            "english": {
+                                "type": "standard"
                             }
                         },
                         "tokenizer": {
                             "nori_tokenizer": {
                                 "type": "nori_tokenizer",
                                 "decompound_mode": "mixed",
-                                # "user_dictionary": "userdict_ko.txt"
                             }
                         }
                     }
@@ -96,16 +107,16 @@ class ElasticsearchClient:
                 "properties": {
                     "title": {
                         "type": "text",
-                        "analyzer": "korean"
+                        "analyzer": "korean" if language == 'ko' else "english"
                     },
                     "text": {
                         "type": "text",
-                        "analyzer": "korean"
+                        "analyzer": "korean" if language == 'ko' else "english"
                     },
-                    "suggest": {  # Correctly place the suggest field within the properties
+                    "suggest": {
                         "type": "completion",
-                        "analyzer": "korean",
-                        "search_analyzer": "korean",  # Use the Simple analyzer for searching
+                        "analyzer": "korean" if language == 'ko' else "english",
+                        "search_analyzer": "korean" if language == 'ko' else "english",
                         "preserve_separators": True,
                         "preserve_position_increments": True,
                         "max_input_length": 50
@@ -113,9 +124,10 @@ class ElasticsearchClient:
                 }
             }
         }
-        self.es.indices.create(index='articles', body=settings)
+        index_name = f'articles_{language}'
+        self.es.indices.create(index=index_name, body=settings)
 
-    def insert_article(self, article: Article, entry_id: str):
+    def insert_article(self, article: Article, entry_id: str, language='ko'):
         # Prepare the entry for Elasticsearch
         entry_time = datetime.strptime(article.time, "%Y-%m-%d")
         article_text = strip_markdown(article.content)
@@ -128,13 +140,13 @@ class ElasticsearchClient:
             "text": article_text,
             "suggest": article.title
         }
+        index_name = f'articles_{language}'
         # Insert the article into Elasticsearch
-        self.es.index(index="articles", body=es_entry, id=entry_id)
+        self.es.index(index=index_name, body=es_entry, id=entry_id)
 
-    def search_articles(self, query: str):
-        # Perform a search in Elasticsearch using the Nori analyzer for both Title and Text fields
-        # Title matches are boosted, and recent articles are given a higher score
-        response = self.es.search(index="articles", body={
+    def search_articles(self, query: str, language='ko') -> Elasticsearch.search:
+        index_name = f'articles_{language}'
+        response = self.es.search(index=index_name, body={
             "query": {
                 "function_score": {
                     "query": {
@@ -162,8 +174,9 @@ class ElasticsearchClient:
         })
         return response
 
-    def autocomplete(self, query: str):
-        response = self.es.search(index="articles", body={
+    def autocomplete(self, query: str, language='ko'):
+        index_name = f'articles_{language}'
+        response = self.es.search(index=index_name, body={
             "suggest": {
                 "article_suggest": {
                     "prefix": query,
