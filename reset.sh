@@ -84,6 +84,6 @@ case $option in
 esac
 
 # Use docker-compose to spin up new containers
-#spin_up_containers
+spin_up_containers
 
 echo "Operation completed."

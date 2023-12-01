@@ -1,10 +1,12 @@
 from datetime import datetime, timezone, timedelta
 
+from bson import ObjectId
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient
 from models import *
 from utils import strip_markdown
 from log_manager import log
+from typing import Optional
 
 
 class DatabaseManager:
@@ -66,6 +68,58 @@ class DatabaseManager:
             log.error(f"Error in article insertion/updation: {e}")
             return False
         return True
+
+    def add_language(self, language: str, article: Article, mongo_id: str) -> bool:
+        """
+        Add a new language to the database.
+        :param language: Language code to add.
+        :param article: Article object to insert.
+        :param mongo_id: MongoDB ID of the article.
+        :return: True if the update was successful, False otherwise.
+        """
+        try:
+            mongo_id = ObjectId(mongo_id)
+            # Fetch the existing article from the database
+            existing_entry = self.db.articles.find_one({"_id": mongo_id})
+
+            if not existing_entry:
+                log.error(f"No article found with ID: {mongo_id}")
+                return False
+
+            # Update the title and content with the new language
+            updated_entry = existing_entry
+            updated_entry["title"][language] = article.title
+            updated_entry["content"][language] = article.content
+
+            # Save the updated entry back to the database
+            result = self.db.articles.update_one({"_id": mongo_id}, {"$set": updated_entry})
+
+            if result.modified_count == 0:
+                log.error(f"Failed to update article with ID: {mongo_id}")
+                return False
+
+            log.info(f"Added language '{language}' to article: {mongo_id}")
+        except Exception as e:
+            log.error(f"Error in adding language to article: {e}")
+            return False
+        return True
+
+    def get_article_from_id(self, mongo_id: str) -> Optional[Article]:
+        try:
+            # Convert string ID to ObjectId
+            object_id = ObjectId(mongo_id)
+            article = self.db.articles.find_one({"_id": object_id})
+            if not article:
+                log.error(f"No article found with ID: {mongo_id}")
+                return None
+
+            time_formatted = article['time'].strftime('%Y-%m-%d')
+
+            return Article(article['tag'], article['o_id'], article['url'], article['title']['ko'],
+                           time_formatted, article['content']['ko'])
+        except Exception as e:
+            log.error(f"Error fetching article from ID: {e}")
+            return None
 
 
 class ElasticsearchClient:
@@ -205,7 +259,7 @@ if __name__ == "__main__":
         print(elastic.autocomplete(terms))
 
         # Search for articles
-        hits = elastic.search_articles(terms)
+        hits = elastic.search_articles(terms, language='en')
         for hit in hits['hits']['hits']:
             print(f"Title: {hit['_source']['title']}")
             # print(f"Time: {hit['_source']['time']}")
