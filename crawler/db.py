@@ -1,5 +1,4 @@
 from datetime import datetime, timezone, timedelta
-import json
 
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient
@@ -14,9 +13,6 @@ class DatabaseManager:
         self.client = MongoClient("localhost", 27017)
         self.db = self.client["articles"]
 
-        # elasticsearch
-        self.es = Elasticsearch(["http://localhost:9200"])
-
         # ping the server to check if it's available
         try:
             self.client.admin.command('ismaster')
@@ -24,29 +20,6 @@ class DatabaseManager:
         except Exception as e:
             log.error(f"Error connecting to MongoDB server: {e}")
             exit(1)
-
-        try:
-            self.es.ping()
-            log.info("Connected to Elasticsearch server")
-        except Exception as e:
-            log.error(f"Error connecting to Elasticsearch server: {e}")
-            exit(1)
-
-    def setup_elasticsearch(self):
-        with open("search_settings.json", "r") as f:
-            settings = json.load(f)
-
-        try:
-            if self.es.indices.exists(index="articles"):
-                # If the index exists, you can choose to delete and recreate it
-                # or update its settings based on your requirements
-                self.es.indices.delete(index="articles")
-                log.info("Existing Elasticsearch index deleted")
-
-            self.es.indices.create(index="articles", body=settings)
-            log.info("Elasticsearch index created with Nori analyzer and synonym filter")
-        except Exception as e:
-            log.error(f"Error setting up Elasticsearch index: {e}")
 
     def insert_article(self, article: Article) -> bool:
         """
@@ -82,7 +55,69 @@ class DatabaseManager:
             log.error(f"Error inserting article: {e}")
             return False
 
-        # extract the article's text from html for elastic search
+        ElasticsearchClient().insert_article(article, entry_id)
+
+
+class ElasticsearchClient:
+    def __init__(self):
+        self.es = Elasticsearch("http://localhost:9200")
+
+        try:
+            self.es.ping()
+            log.info("Connected to Elasticsearch server")
+        except Exception as e:
+            log.error(f"Error connecting to Elasticsearch server: {e}")
+            exit(1)
+
+    def setup_index(self):
+        # Define the settings for the Nori analyzer
+        settings = {
+            "settings": {
+                "index": {
+                    "analysis": {
+                        "analyzer": {
+                            "korean": {
+                                "type": "custom",
+                                "tokenizer": "nori_tokenizer",
+                                "filter": ["nori_readingform"]
+                            }
+                        },
+                        "tokenizer": {
+                            "nori_tokenizer": {
+                                "type": "nori_tokenizer",
+                                "decompound_mode": "mixed",
+                                # "user_dictionary": "userdict_ko.txt"
+                            }
+                        }
+                    }
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "title": {
+                        "type": "text",
+                        "analyzer": "korean"
+                    },
+                    "text": {
+                        "type": "text",
+                        "analyzer": "korean"
+                    },
+                    "suggest": {  # Correctly place the suggest field within the properties
+                        "type": "completion",
+                        "analyzer": "korean",
+                        "search_analyzer": "korean",  # Use the Simple analyzer for searching
+                        "preserve_separators": True,
+                        "preserve_position_increments": True,
+                        "max_input_length": 50
+                    }
+                }
+            }
+        }
+        self.es.indices.create(index='articles', body=settings)
+
+    def insert_article(self, article: Article, entry_id: str):
+        # Prepare the entry for Elasticsearch
+        entry_time = datetime.strptime(article.time, "%Y-%m-%d")
         article_text = strip_markdown(article.content)
 
         es_entry = {
@@ -90,70 +125,80 @@ class DatabaseManager:
             "o_id": article.article_id,
             "title": article.title,
             "time": entry_time,
-            "text": article_text  # Using cleaned text for Elasticsearch
+            "text": article_text,
+            "suggest": article.title
         }
-        try:
-            self.es.index(index="articles", id=entry_id, document=es_entry)
-            return True
-        except Exception as e:
-            log.error(f"Error indexing article: {e}")
-            return False
+        # Insert the article into Elasticsearch
+        self.es.index(index="articles", body=es_entry, id=entry_id)
 
     def search_articles(self, query: str):
-        # Define the decay function for the date field
-        # This function will give more weight to newer articles
-
-        decay_function = {
-            "exp": {
-                "time": {
-                    "origin": "now",
-                    "scale": "60d",
-                    "offset": "60d",
-                    "decay": 0.8
-                }
-            }
-        }
-
-        body = {
+        # Perform a search in Elasticsearch using the Nori analyzer for both Title and Text fields
+        # Title matches are boosted, and recent articles are given a higher score
+        response = self.es.search(index="articles", body={
             "query": {
                 "function_score": {
                     "query": {
-                        "bool": {
-                            "must": {
-                                "multi_match": {
-                                    "query": query,
-                                    "fields": ["title", "text"],
-                                    "analyzer": "korean",  # Explicitly specify the analyzer
-                                    "fuzziness": "AUTO"
-                                }
-                            },
-                            "should": [
-                                {"match": {"title": {"query": query, "boost": 2, "analyzer": "korean"}}},
-                                {"match": {"text": {"query": query, "analyzer": "korean"}}}
-                            ]
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["title^2", "text"],  # Boost title matches
+                            "fuzziness": "AUTO"
                         }
                     },
-                    "functions": [decay_function],
-                    "boost_mode": "multiply"
+                    "functions": [
+                        {
+                            "gauss": {
+                                "time": {
+                                    "origin": "now",
+                                    "scale": "60d",
+                                    "offset": "60d",
+                                    "decay": 0.5
+                                }
+                            }
+                        }
+                    ],
+                    "score_mode": "multiply"  # Combine the scores from the query and the function
+                }
+            },
+        })
+        return response
+
+    def autocomplete(self, query: str):
+        response = self.es.search(index="articles", body={
+            "suggest": {
+                "article_suggest": {
+                    "prefix": query,
+                    "completion": {
+                        "field": "suggest"
+                    }
                 }
             }
-        }
-        return self.es.search(index="articles", body=body)
+        })
+
+        # Extracting suggestions
+        suggestions = response.get('suggest', {}).get('article_suggest', [])[0].get('options', [])
+        return [suggestion['text'] for suggestion in suggestions]
 
 
-# Example usage
 if __name__ == "__main__":
-    db = DatabaseManager()
+    elastic = ElasticsearchClient()
+    # elastic.setup_index()
 
-    terms = input("Search articles: ")
-    results = db.search_articles(terms)
+    while True:
+        terms = input("Search articles: ")
+        if terms == "":
+            break
 
-    for result in results["hits"]["hits"]:
-        print(f"Title: {result['_source']['title']}")
-        print(f"Score: {result['_score']}")  # Score is calculated by Elasticsearch
-        print(f"Text: {result['_source']['text']}")
-        print()
+        # Get autocomplete suggestions
+        print(elastic.autocomplete(terms))
 
-    print("=====================================")
-    print(f"Total results: {results['hits']['total']['value']}")
-    print(f"Took: {results['took']}ms")
+        # Search for articles
+        hits = elastic.search_articles(terms)
+        for hit in hits['hits']['hits']:
+            print(f"Title: {hit['_source']['title']}")
+            # print(f"Time: {hit['_source']['time']}")
+            print(f"Score: {hit['_score']}")
+            print("")
+
+        print("=====================================")
+        print(f"Total hits: {hits['hits']['total']['value']} articles")
+        print(f"Took: {hits['took']}ms")

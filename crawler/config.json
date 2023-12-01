@@ -17,7 +17,7 @@
     "articles_per_page": 10,
     "article_container": "/html/body/div[1]/div[4]/b/div/div[2]/center/table/tbody/tr[4]/td"
   },
-  "": {
+  "changgyeonggung": {
     "source_prefix": "cgg",
     "domain": "https://cgg.cha.go.kr",
     "url": "https://cgg.cha.go.kr/agapp/public/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000195&pageNo=75040000&siteCd=CGG&pageIndex=",
@@ -62,7 +62,7 @@
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
     "articles_per_page": 10,
-    "article_container": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/form/div[1]/div[1]/div"
+    "article_container": "/html/body/div/div[2]/div[3]/div/div/div/table[1]/tbody/tr[4]/td"
   },
   "royal_tombs_events": {
     "source_prefix": "rt-e",
@@ -71,6 +71,6 @@
     "table": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/table/tbody",
     "table_column": ["article_id", "title_url", "", "date"],
     "articles_per_page": 10,
-    "article_container": "/html/body/div[1]/div[2]/div[3]/div/div/div[2]/form/div[1]/div[1]/div"
+    "article_container": "/html/body/div/div[2]/div[3]/div/div/div/table[1]/tbody/tr[4]/td"
   }
 }

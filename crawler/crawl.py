@@ -8,7 +8,7 @@ from crawler.log_manager import Logger, log
 from crawler.utils import HTMLCleaner, no_stopword
 from crawler.browser import BaseCrawler
 from crawler.models import *
-from crawler.db import DatabaseManager
+from crawler.db import DatabaseManager, ElasticsearchClient
 from formatting import format_notice
 from typing import Union
 
@@ -36,6 +36,9 @@ class GungCrawler(BaseCrawler):
         with open("config.json") as f:
             config = json.load(f)
         return config[config_key]
+
+    def get_config_key(self) -> str:
+        return self.config_key
 
     def parse_table(self, table_object: WebElement, column_type: list) -> list[PreviewItem]:
         """
@@ -74,8 +77,6 @@ class GungCrawler(BaseCrawler):
             rowitem = PreviewItem()
 
             for i, col_type in enumerate(column_type):
-                log.debug(f"{i} Column type: {col_type}")
-                log.debug(f"{i} Column text: {columns[i].text}")
                 if i >= len(columns):
                     break
                 if col_type == "":
@@ -133,6 +134,7 @@ class GungCrawler(BaseCrawler):
         :raises: ValueError if the page number is less than 1.
         :raises: OutOfBoundsException if the page number is out of bounds.
         """
+        log.info(f"Fetching page {page}")
         if page < 1:
             raise ValueError("Page number must be greater than 0")
         if page > self.last_page_number():
@@ -184,7 +186,6 @@ class GungCrawler(BaseCrawler):
 
         master_list = []
         for page in range(1, max_ceiling + 1):
-            log.info(f"Fetching page {page}")
             master_list += self.fetch_article_list(page)
             if master_list[-1].article_id <= article_id:
                 break
@@ -220,7 +221,7 @@ class GungCrawler(BaseCrawler):
 
         # fetch the articles in the range
         for page in range(initial_page, final_page + 1):
-            log.info(f"Fetching page {page}")
+            log.info(f"Fetching article {page}")
             master_list += self.fetch_article_list(page)
 
         # filter out articles outside the desired ID range
@@ -272,7 +273,11 @@ class GungCrawler(BaseCrawler):
         while len(tabs) > 0:
             self.switch_to_tab(tabs[0])
             if self.element_from_xpath_exists(self.config["article_container"]):
-                article_list.append(self.get_article(items[int(tabs[0])], False))
+
+                try:
+                    article_list.append(self.get_article(items[int(tabs[0])], False))
+                except Exception as e:
+                    log.error(f"Error getting article: {e} (URL: {items[int(tabs[0])].url})")
 
                 # close the current tab
                 self.close_current_tab()
@@ -348,33 +353,60 @@ class RoyalTombsEventsCrawler(GungCrawler):
         super().__init__("royal_tombs_events", headless, no_images, keep_window)
 
 
-def save_to_cache():
-    with ChangdeokgungCrawler() as crawler:
-        result = crawler.fetch_article_in_range(1, 296)
-        articles = crawler.get_articles(result, max_workers=10)
+def save_to_cache(crawler):
+    # result = crawler.fetch_article_in_range(270, 280)
+    index_result = crawler.fetch_article_until(1)
+    # index_result = crawler.fetch_article_list_range(1, 2)
+    articles = crawler.get_articles(index_result, max_workers=5)
 
-        for document in articles:
-            if len(document.content) > 16000:
-                log.info(f"Skipping article {document.article_id} due to length")
-            elif not no_stopword(document.content):
-                log.info(f"Skipping article {document.article_id} due to stopword")
-            else:
-                log.info(f"Formatting article {document.article_id}")
+    for document in articles:
+        if len(document.content) > 16000:
+            log.info(f"Skipping article {document.article_id} due to length")
+        elif not no_stopword(document.content):
+            log.info(f"Skipping article {document.article_id} due to stopword")
+        else:
+            log.info(f"Formatting article {document.article_id}")
+
+            try:
                 formatted = format_notice(document.content)
+            except Exception as e:
+                log.error(f"Error formatting article {document.article_id}: {e}")
+                continue
 
-                with open(f"cache/changdeokgung/{document.article_id}.md", "w", encoding="utf-8") as f:
-                    f.write(formatted)
+            with open(f"cache/{crawler.get_config_key()}/{document.article_id}.md", "w", encoding="utf-8") as f:
+                f.write(formatted)
 
 
 if __name__ == "__main__":
     Logger(debug=False)
-    db = DatabaseManager()
-    db.setup_elasticsearch()
+    save_to_cache(RoyalTombsNoticeCrawler())
+    save_to_cache(RoyalTombsEventsCrawler())
 
-    with GyeongbokgungCrawler() as crawler:
-        result = crawler.fetch_article_until(1)
-        for preview_item in result:
-            article_item = crawler.get_cache(preview_item)
-            if article_item:
-                log.info(f"Inserting: {article_item.article_id}")
-                db.insert_article(article_item)
+    # db = DatabaseManager()
+    # es = ElasticsearchClient()
+
+    # es.setup_index()
+
+    # with GyeongbokgungCrawler() as crawler:
+    #     result = crawler.fetch_article_until(1)
+    #     for preview_item in result:
+    #         article_item = crawler.get_cache(preview_item)
+    #         if article_item:
+    #             log.info(f"Inserting: {article_item.article_id}")
+    #             db.insert_article(article_item)
+    #
+    # with ChanggyeonggungCrawler() as crawler:
+    #     result = crawler.fetch_article_until(1)
+    #     for preview_item in result:
+    #         article_item = crawler.get_cache(preview_item)
+    #         if article_item:
+    #             log.info(f"Inserting: {article_item.article_id}")
+    #             db.insert_article(article_item)
+    #
+    # with ChangdeokgungCrawler() as crawler:
+    #     result = crawler.fetch_article_until(1)
+    #     for preview_item in result:
+    #         article_item = crawler.get_cache(preview_item)
+    #         if article_item:
+    #             log.info(f"Inserting: {article_item.article_id}")
+    #             db.insert_article(article_item)

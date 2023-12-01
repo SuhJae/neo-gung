@@ -1,0 +1,56 @@
+[91m23-12-01 06:00:14 [ERROR]: Message: timeout: Timed out receiving message from renderer: -0.009
+  (Session info: headless chrome=119.0.6045.159)
+Stacktrace:
+0   chromedriver                        0x00000001052a2004 chromedriver + 4169732
+1   chromedriver                        0x0000000105299ff8 chromedriver + 4136952
+2   chromedriver                        0x0000000104eef500 chromedriver + 292096
+3   chromedriver                        0x0000000104ed7a88 chromedriver + 195208
+4   chromedriver                        0x0000000104ed797c chromedriver + 194940
+5   chromedriver                        0x0000000104ed5ef4 chromedriver + 188148
+6   chromedriver                        0x0000000104ed6b14 chromedriver + 191252
+7   chromedriver                        0x0000000104ee5c80 chromedriver + 253056
+8   chromedriver                        0x0000000104efaa3c chromedriver + 338492
+9   chromedriver                        0x0000000104ed726c chromedriver + 193132
+10  chromedriver                        0x0000000104efa858 chromedriver + 338008
+11  chromedriver                        0x0000000104f6f788 chromedriver + 817032
+12  chromedriver                        0x0000000104f285e8 chromedriver + 525800
+13  chromedriver                        0x0000000104f294b8 chromedriver + 529592
+14  chromedriver                        0x0000000105268334 chromedriver + 3932980
+15  chromedriver                        0x000000010526c970 chromedriver + 3950960
+16  chromedriver                        0x0000000105250774 chromedriver + 3835764
+17  chromedriver                        0x000000010526d478 chromedriver + 3953784
+18  chromedriver                        0x0000000105242ab4 chromedriver + 3779252
+19  chromedriver                        0x0000000105289914 chromedriver + 4069652
+20  chromedriver                        0x0000000105289a90 chromedriver + 4070032
+21  chromedriver                        0x0000000105299c70 chromedriver + 4136048
+22  libsystem_pthread.dylib             0x000000018f2cd034 _pthread_start + 136
+23  libsystem_pthread.dylib             0x000000018f2c7e3c thread_start + 8
+[0m
+[91m23-12-01 08:48:07 [ERROR]: Message: disconnected: Unable to receive message from renderer
+  (failed to check if window was closed: disconnected: not connected to DevTools)
+  (Session info: headless chrome=119.0.6045.159)
+Stacktrace:
+0   chromedriver                        0x00000001006a2004 chromedriver + 4169732
+1   chromedriver                        0x0000000100699ff8 chromedriver + 4136952
+2   chromedriver                        0x00000001002ef500 chromedriver + 292096
+3   chromedriver                        0x00000001002d7a88 chromedriver + 195208
+4   chromedriver                        0x00000001002d797c chromedriver + 194940
+5   chromedriver                        0x00000001002d5ef4 chromedriver + 188148
+6   chromedriver                        0x00000001002d6b14 chromedriver + 191252
+7   chromedriver                        0x00000001002f42c8 chromedriver + 312008
+8   chromedriver                        0x00000001002f6780 chromedriver + 321408
+9   chromedriver                        0x00000001002f68ac chromedriver + 321708
+10  chromedriver                        0x0000000100362f80 chromedriver + 765824
+11  chromedriver                        0x00000001003285e8 chromedriver + 525800
+12  chromedriver                        0x00000001003294b8 chromedriver + 529592
+13  chromedriver                        0x0000000100668334 chromedriver + 3932980
+14  chromedriver                        0x000000010066c970 chromedriver + 3950960
+15  chromedriver                        0x0000000100650774 chromedriver + 3835764
+16  chromedriver                        0x000000010066d478 chromedriver + 3953784
+17  chromedriver                        0x0000000100642ab4 chromedriver + 3779252
+18  chromedriver                        0x0000000100689914 chromedriver + 4069652
+19  chromedriver                        0x0000000100689a90 chromedriver + 4070032
+20  chromedriver                        0x0000000100699c70 chromedriver + 4136048
+21  libsystem_pthread.dylib             0x000000018f2cd034 _pthread_start + 136
+22  libsystem_pthread.dylib             0x000000018f2c7e3c thread_start + 8
+[0m

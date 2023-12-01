@@ -187,7 +187,10 @@ class HTMLCleaner:
 
         # Remove or unwrap unnecessary tags and attributes
         for tag in self.soup.find_all():
+
             if tag.name == 'a' and tag.get('href'):  # Check if the tag is an 'a' tag and has an href attribute
+                if tag.get('href') is None:
+                    tag.decompose()
                 if tag.get('href').startswith('http'):
                     # Just keep the href attribute for 'a' tags and open in new tab
                     tag.attrs = {'href': tag.get('href'), 'target': '_blank'}
@@ -195,6 +198,8 @@ class HTMLCleaner:
                     # Add the origin to the href attribute for 'a' tags
                     tag.attrs = {'href': origin + tag.get('href'), 'target': '_blank'}
             elif tag.name == 'img':
+                if tag.get('src') is None:
+                    tag.decompose()
                 # check the src has http or https
                 if tag.get('src').startswith('http'):
                     # Just keep the src and alt attributes

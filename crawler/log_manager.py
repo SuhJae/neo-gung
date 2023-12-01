@@ -19,7 +19,7 @@ class ColoredFormatter(log.Formatter):
 
 
 class Logger:
-    def __init__(self, debug: bool = False, log_file: str = ''):
+    def __init__(self, debug: bool = False, log_file: str = 'error.log'):
         # Create logger
         logger = log.getLogger()
         logger.setLevel(log.INFO)
@@ -36,7 +36,7 @@ class Logger:
         if log_file:
             logger.info(f"Logging to file: {log_file}")
             file_handler = log.FileHandler(log_file)
-            file_handler.setLevel(log.INFO)
+            file_handler.setLevel(log.ERROR)
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
 
