@@ -28,7 +28,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - mongo-db:/data/db
 
   elasticsearch:
     build:
@@ -40,9 +40,9 @@ services:
     ports:
       - "9200:9200"
     volumes:
-      - es-data:/usr/share/elasticsearch/data
+      - es-db:/usr/share/elasticsearch/data
 
 volumes:
-  mongo-data:
-  es-data:
+    mongo-db:
+    es-db:
 
