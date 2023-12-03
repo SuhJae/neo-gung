@@ -87,6 +87,7 @@ class DatabaseManager:
                 return False
 
             # Update the title and content with the new language
+            # This will overwrite the existing title and content for specified language
             updated_entry = existing_entry
             updated_entry["title"][language] = article.title
             updated_entry["content"][language] = article.content
@@ -94,8 +95,8 @@ class DatabaseManager:
             # Save the updated entry back to the database
             result = self.db.articles.update_one({"_id": mongo_id}, {"$set": updated_entry})
 
-            if result.modified_count == 0:
-                log.error(f"Failed to update article with ID: {mongo_id}")
+            if result.matched_count == 0:
+                log.error(f"Error while updating article: {mongo_id} ({result.raw_result})")
                 return False
 
             log.info(f"Added language '{language}' to article: {mongo_id}")

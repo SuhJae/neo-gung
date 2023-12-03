@@ -9,7 +9,8 @@ from typing import Optional
 
 # for English: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
 #                                                  to_language="en")
-
+# for Japanese: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
+#                                                  to_language="ja")
 
 class ArticleTranslationScript:
     def __init__(self):
@@ -21,10 +22,7 @@ class ArticleTranslationScript:
             articles = self.db_manager.db.articles.find({}, {"_id": 1})
             article_ids = [str(article['_id']) for article in articles]
 
-            with open(self.article_id_file, 'w') as file:
-                file.write('\n'.join(article_ids))
-
-            log.info("Article IDs fetched and saved to file.")
+            log.info("Article IDs fetched.")
             return article_ids
         except Exception as e:
             log.error(f"Error fetching article IDs: {e}")
@@ -34,14 +32,14 @@ class ArticleTranslationScript:
     def translate_article(article: Article) -> Optional[Article]:
         try:
             # uning papago translator to translate the article from Korean to English
-            translated_title = ts.translate_text(translator="Mirai", query_text=article.title, from_language="ko",
-                                                 to_language="ja")
-            translated_content = ts.translate_text(translator="Mirai", query_text=article.content, from_language="ko",
-                                                   to_language="ja")
+            translated_title = ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
+                                                 to_language="es")
+            translated_content = ts.translate_text(translator="papago", query_text=article.content, from_language="ko",
+                                                   to_language="es")
 
             return Article(source_prefix=article.source_prefix, article_id=article.article_id, source_url=article.url,
                            title=translated_title,
-                           time=article.time, content=translated_content, language='en')
+                           time=article.time, content=translated_content, language='es')
 
         except Exception as e:
             log.error(f"Error translating article: {e}")
@@ -57,15 +55,15 @@ class ArticleTranslationScript:
                 return
             else:
                 article = self.translate_article(article)
-                update_result = self.db_manager.add_language('ja', article, article_id)
+                update_result = self.db_manager.add_language('es', article, article_id)
                 if update_result:
-                    log.info(f"Article updated with English translation: {article_id}")
+                    log.info(f"Article updated with translation: {article_id}")
                 else:
                     log.error(f"Failed to update article: {article_id}")
         except Exception as e:
             log.error(f"Error processing article {article_id}: {e}")
 
-    def run(self, num_workers: int = 3) -> None:
+    def run(self, num_workers: int = 1) -> None:
         # Fetch all article IDs
         article_ids = self.fetch_article_ids()
 

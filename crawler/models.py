@@ -32,8 +32,8 @@ class Article:
         if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
             raise ValueError(f"Invalid time. It must be in the YYYY-MM-DD format: {time}")
 
-        if not language or language not in ["ko", "en"]:
-            raise ValueError(f"Invalid language. It must be one of: 'ko', 'en': {language}")
+        if not language or language not in ["ko", "en", "ja", "zh", "es"]:
+            raise ValueError(f"Invalid language. It must be one of: 'ko', 'en', 'ja', 'zh', 'es': {language}")
 
         self.source_prefix = source_prefix
         self.article_id = article_id
