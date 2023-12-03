@@ -5,11 +5,11 @@ from typing import Union
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from crawler.modules.log_manager import Logger, log
-from crawler.modules.utils import HTMLCleaner, no_stopword
-from crawler.modules.browser import BaseCrawler
-from crawler.modules.models import *
-from crawler.modules.formatting import format_notice
+from modules.log_manager import Logger, log
+from modules.utils import HTMLCleaner, no_stopword
+from modules.browser import BaseCrawler
+from modules.models import *
+from modules.formatting import format_notice
 
 
 class GungCrawler(BaseCrawler):

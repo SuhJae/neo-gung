@@ -1,5 +1,5 @@
-from crawler.modules.db import MongoDBClient
-from crawler.modules.log_manager import Logger, log
+from modules.db import MongoDBClient
+from modules.log_manager import Logger, log
 
 Logger(debug=False)
 

@@ -2,6 +2,8 @@ import re
 
 
 class Article:
+    valid_languages = ["ko", "en", "ja", "zh", "es"]
+
     def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
                  language: str = "ko"):
         """
@@ -32,7 +34,7 @@ class Article:
         if not time or not re.match(r"^\d{4}-\d{2}-\d{2}$", time):
             raise ValueError(f"Invalid time. It must be in the YYYY-MM-DD format: {time}")
 
-        if not language or language not in ["ko", "en", "ja", "zh", "es"]:
+        if not language or language not in self.valid_languages:
             raise ValueError(f"Invalid language. It must be one of: 'ko', 'en', 'ja', 'zh', 'es': {language}")
 
         self.source_prefix = source_prefix
@@ -42,6 +44,17 @@ class Article:
         self.time = time
         self.content = content
         self.language = language
+
+    def to_dict(self) -> dict:
+        return {
+            "source_prefix": self.source_prefix,
+            "article_id": self.article_id,
+            "source_url": self.url,
+            "title": self.title,
+            "time": self.time,
+            "content": self.content,
+            "language": self.language,
+        }
 
     def __str__(self):
         return f"Article ID: {self.article_id}\n" \

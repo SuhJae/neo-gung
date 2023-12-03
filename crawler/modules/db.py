@@ -4,9 +4,9 @@ from elasticsearch import Elasticsearch
 from pymongo import MongoClient
 from typing import Optional
 
-from crawler.modules.models import *
-from crawler.modules.utils import strip_markdown
-from crawler.modules.log_manager import log
+from modules.models import *
+from modules.utils import strip_markdown
+from modules.log_manager import log
 
 
 class MongoDBClient:
@@ -105,7 +105,7 @@ class MongoDBClient:
             return False
         return True
 
-    def get_article_from_id(self, mongo_id: str) -> Optional[Article]:
+    def get_article_from_id(self, mongo_id: str, language: str = 'ko') -> Optional[Article]:
         try:
             # Convert string ID to ObjectId
             object_id = ObjectId(mongo_id)
@@ -116,11 +116,12 @@ class MongoDBClient:
 
             time_formatted = article['time'].strftime('%Y-%m-%d')
 
-            return Article(article['tag'], article['o_id'], article['url'], article['title']['ko'],
-                           time_formatted, article['content']['ko'])
+            return Article(article['tag'], article['o_id'], article['url'], article['title'][language],
+                           time_formatted, article['content'][language])
         except Exception as e:
             log.error(f"Error fetching article from ID: {e}")
             return None
+
 
 
 class ElasticsearchClient:

@@ -2,9 +2,9 @@ import translators as ts
 import concurrent.futures
 from typing import Optional
 
-from crawler.modules.models import Article
-from crawler.modules.db import MongoDBClient
-from crawler.modules.log_manager import Logger, log
+from modules.models import Article
+from modules.db import MongoDBClient
+from modules.log_manager import Logger, log
 
 
 # for English: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
