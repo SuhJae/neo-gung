@@ -3,7 +3,7 @@ from markdownify import markdownify as mdf
 import re
 from typing import Union
 
-with open("stopwords.txt", "r") as f:
+with open("configs/stopwords.txt", "r") as f:
     stopwords = f.read().splitlines()
 
 
@@ -255,7 +255,7 @@ class HTMLCleaner:
 
 # example usage
 if __name__ == '__main__':
-    with open('cache/gyeongbokgung/954.md', 'r') as f:
+    with open('../cache/gyeongbokgung/954.md', 'r') as f:
         markdown_file = strip_markdown(f.read())
 
     print(markdown_file)

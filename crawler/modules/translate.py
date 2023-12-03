@@ -1,10 +1,10 @@
 import translators as ts
 import concurrent.futures
-from models import Article
-
-from db import DatabaseManager
-from crawler.log_manager import Logger, log
 from typing import Optional
+
+from crawler.modules.models import Article
+from crawler.modules.db import MongoDBClient
+from crawler.modules.log_manager import Logger, log
 
 
 # for English: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
@@ -14,7 +14,7 @@ from typing import Optional
 
 class ArticleTranslationScript:
     def __init__(self):
-        self.db_manager = DatabaseManager()
+        self.db_manager = MongoDBClient()
         self.article_id_file = 'cache/mongo_article_id_list.txt'
 
     def fetch_article_ids(self) -> list:

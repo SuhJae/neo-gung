@@ -1,15 +1,15 @@
 from datetime import datetime, timezone, timedelta
-
 from bson import ObjectId
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient
-from models import *
-from utils import strip_markdown
-from log_manager import log
 from typing import Optional
 
+from crawler.modules.models import *
+from crawler.modules.utils import strip_markdown
+from crawler.modules.log_manager import log
 
-class DatabaseManager:
+
+class MongoDBClient:
     def __init__(self):
         # mongoDB
         self.client = MongoClient("localhost", 27017)

@@ -1,14 +1,12 @@
-from db import DatabaseManager
-from crawler.log_manager import Logger, log
-from typing import Optional
-
+from crawler.modules.db import MongoDBClient
+from crawler.modules.log_manager import Logger, log
 
 Logger(debug=False)
 
 # get all article from article collection and itterate over them
 # check the "title" field and "content" object has 5 elements in it
 
-db_manager = DatabaseManager()
+db_manager = MongoDBClient()
 articles = db_manager.db.articles.find({})
 
 
