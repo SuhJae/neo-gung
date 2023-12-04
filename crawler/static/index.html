@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Auto-complete Test</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Auto-complete Test</h1>
+        <form id="autoCompleteForm">
+            <input type="text" id="queryInput" placeholder="Enter a query..." required>
+            <select id="languageSelect">
+                <option value="ko">Korean</option>
+                <option value="en">English</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
+                <option value="es">Spanish</option>
+            </select>
+            <button type="submit">Submit</button>
+        </form>
+        <ul id="resultsList"></ul>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>

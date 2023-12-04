@@ -3,7 +3,7 @@ from markdownify import markdownify as mdf
 import re
 from typing import Union
 
-with open("configs/stopwords.txt", "r") as f:
+with open("modules/stopwords.txt", "r") as f:
     stopwords = f.read().splitlines()
 
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from elasticsearch import Elasticsearch
-from pymongo import MongoClient
+from pymongo import MongoClient, DESCENDING
 from typing import Optional
 
 from modules.models import *
@@ -122,6 +122,23 @@ class MongoDBClient:
             log.error(f"Error fetching article from ID: {e}")
             return None
 
+    def get_latest_article(self, language: str = 'ko', cursor_id: str = None, limit: int = 20) -> list[Article]:
+        query = {}
+
+        if cursor_id:
+            starting_article = self.db.articles.find_one({"_id": ObjectId(cursor_id)}, {"time": 1})
+            if starting_article:
+                query = {"time": {"$lt": starting_article["time"]}}
+
+        articles = self.db.articles.find(query).sort("time", DESCENDING).limit(limit)
+        article_list = []
+
+        for article in articles:
+            time_formatted = article['time'].strftime('%Y-%m-%d')
+            article_list.append(Article(article['tag'], article['o_id'], article['url'], article['title'][language],
+                                        time_formatted, article['content'][language], language))
+
+        return article_list
 
 
 class ElasticsearchClient:
@@ -134,54 +151,100 @@ class ElasticsearchClient:
             log.error(f"Failed connecting to Elasticsearch server: {e}")
             exit(1)
 
-    def setup_index(self, language: str = 'ko') -> None:
-        # Define the settings for the Nori analyzer
-        settings = {
-            "settings": {
-                "index": {
-                    "analysis": {
-                        "analyzer": {
-                            "korean": {
-                                "type": "custom",
-                                "tokenizer": "nori_tokenizer",
-                                "filter": ["nori_readingform"]
+    def setup_index(self) -> None:
+        # reset the index
+        for language in Article.valid_languages:
+            index_name = f'articles_{language}'
+            if self.es.indices.exists(index=index_name):
+                self.es.indices.delete(index=index_name)
+                print(f"Deleted index: {index_name}")
+
+        # Define the analyzer name based on the language
+        analyzer_mapping = {
+            "ko": "korean",
+            "en": "english",
+            "ja": "japanese",
+            "zh": "chinese",
+            "es": "spanish"
+        }
+
+        for language in Article.valid_languages:
+            analyzer_name = analyzer_mapping[language]
+            print(f"Creating index for language: {language} with analyzer: {analyzer_name}")
+
+            settings = {
+                "settings": {
+                    "index": {
+                        "analysis": {
+                            "analyzer": {
+                                "korean": {
+                                    "type": "custom",
+                                    "tokenizer": "nori_tokenizer",
+                                    "filter": ["nori_readingform"]
+                                },
+                                "english": {
+                                    "type": "standard"
+                                },
+                                "japanese": {
+                                    "type": "custom",
+                                    "tokenizer": "kuromoji_tokenizer",
+                                    "filter": [
+                                        "kuromoji_baseform",
+                                        "kuromoji_part_of_speech",
+                                        "cjk_width",
+                                        "ja_stop"
+                                    ]
+                                },
+                                "chinese": {
+                                    "type": "custom",
+                                    "tokenizer": "smartcn_tokenizer",  # or "ik_smart" for IK analyzer
+                                    "filter": ["cjk_width", "stop"]
+                                },
+                                "spanish": {
+                                    "type": "standard"  # or use a custom Spanish analyzer
+                                }
                             },
-                            "english": {
-                                "type": "standard"
-                            }
-                        },
-                        "tokenizer": {
-                            "nori_tokenizer": {
-                                "type": "nori_tokenizer",
-                                "decompound_mode": "mixed",
+                            "tokenizer": {
+                                "nori_tokenizer": {
+                                    "type": "nori_tokenizer",
+                                    "decompound_mode": "mixed",
+                                },
+                                "kuromoji_tokenizer": {
+                                    "type": "kuromoji_tokenizer"
+                                },
+                            },
+                            "filter": {
+                                "ja_stop": {
+                                    "type": "stop",
+                                    "stopwords": "_japanese_"
+                                }
                             }
                         }
                     }
-                }
-            },
-            "mappings": {
-                "properties": {
-                    "title": {
-                        "type": "text",
-                        "analyzer": "korean" if language == 'ko' else "english"
-                    },
-                    "text": {
-                        "type": "text",
-                        "analyzer": "korean" if language == 'ko' else "english"
-                    },
-                    "suggest": {
-                        "type": "completion",
-                        "analyzer": "korean" if language == 'ko' else "english",
-                        "search_analyzer": "korean" if language == 'ko' else "english",
-                        "preserve_separators": True,
-                        "preserve_position_increments": True,
-                        "max_input_length": 50
+                },
+                "mappings": {
+                    "properties": {
+                        "title": {
+                            "type": "text",
+                            "analyzer": analyzer_name
+                        },
+                        "text": {
+                            "type": "text",
+                            "analyzer": analyzer_name
+                        },
+                        "suggest": {
+                            "type": "completion",
+                            "analyzer": analyzer_name,
+                            "search_analyzer": analyzer_name,
+                            "preserve_separators": True,
+                            "preserve_position_increments": True,
+                            "max_input_length": 50
+                        }
                     }
                 }
             }
-        }
-        index_name = f'articles_{language}'
-        self.es.indices.create(index=index_name, body=settings)
+            index_name = f'articles_{language}'
+            self.es.indices.create(index=index_name, body=settings)
 
     def insert_article(self, article: Article, entry_id: str, language='ko'):
         # Prepare the entry for Elasticsearch
@@ -200,9 +263,11 @@ class ElasticsearchClient:
         # Insert the article into Elasticsearch
         self.es.index(index=index_name, body=es_entry, id=entry_id)
 
-    def search_articles(self, query: str, language='ko') -> Elasticsearch.search:
+    def search_articles(self, query: str, language='ko', cursor: int = 0, limit: int = 20):
         index_name = f'articles_{language}'
         response = self.es.search(index=index_name, body={
+            "from": cursor,  # Starting point for the results
+            "size": limit,  # Number of search hits to return
             "query": {
                 "function_score": {
                     "query": {
@@ -230,7 +295,7 @@ class ElasticsearchClient:
         })
         return response
 
-    def autocomplete(self, query: str, language='ko'):
+    def autocomplete(self, query: str, language='ko') -> list[str]:
         index_name = f'articles_{language}'
         response = self.es.search(index=index_name, body={
             "suggest": {
@@ -246,28 +311,3 @@ class ElasticsearchClient:
         # Extracting suggestions
         suggestions = response.get('suggest', {}).get('article_suggest', [])[0].get('options', [])
         return [suggestion['text'] for suggestion in suggestions]
-
-
-if __name__ == "__main__":
-    elastic = ElasticsearchClient()
-    # elastic.setup_index()
-
-    while True:
-        terms = input("Search articles: ")
-        if terms == "":
-            break
-
-        # Get autocomplete suggestions
-        print(elastic.autocomplete(terms))
-
-        # Search for articles
-        hits = elastic.search_articles(terms, language='en')
-        for hit in hits['hits']['hits']:
-            print(f"Title: {hit['_source']['title']}")
-            # print(f"Time: {hit['_source']['time']}")
-            print(f"Score: {hit['_score']}")
-            print("")
-
-        print("=====================================")
-        print(f"Total hits: {hits['hits']['total']['value']} articles")
-        print(f"Took: {hits['took']}ms")
