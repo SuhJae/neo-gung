@@ -31,7 +31,7 @@ This script will load the data dumped by `save_data.sh` into the database.
 This will look for the backup files in the `backup` directory and give you a list of backups to choose from.
 After choosing the backup, it will load the data into the database and restart the service.
 
-**[crawler](crawler)**:
+**[crawler](back-end)**:
 This directory contains the crawler for the service.
 This will update the database with the latest data from the web and index them into the elastic search and mongodb.
 Written in python and uses ChromeDriver for crawling.

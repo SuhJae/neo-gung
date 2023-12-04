@@ -1,4 +1,4 @@
-# This file is used to setup on the initial run of the crawler
+# This file is used to setup on the initial run of the back-end
 from pymongo import DESCENDING
 
 from modules.db import MongoDBClient, ElasticsearchClient

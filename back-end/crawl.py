@@ -350,9 +350,9 @@ class RoyalTombsEventsCrawler(GungCrawler):
 
 
 def save_to_cache(site_crawler):
-    # result = crawler.fetch_article_in_range(270, 280)
+    # result = back-end.fetch_article_in_range(270, 280)
     index_result = site_crawler.fetch_article_until(1)
-    # index_result = crawler.fetch_article_list_range(1, 2)
+    # index_result = back-end.fetch_article_list_range(1, 2)
     articles = site_crawler.get_articles(index_result, max_workers=5)
 
     for document in articles:
