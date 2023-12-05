@@ -31,6 +31,10 @@ class FeedRequest(BaseModel):
     cursor: Optional[str]
 
 
+class LanguageRequest(BaseModel):
+    language: str
+
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
@@ -43,6 +47,12 @@ app.add_middleware(
 
 mongo_client = MongoDBClient()
 es_client = ElasticsearchClient()
+
+ui_language = {}
+# read languages from config file
+for lang in Article.valid_languages:
+    with open(f"assets/lang/{lang}.json", "r", encoding="utf-8") as f:
+        ui_language[lang] = f.read()
 
 
 async def validate_language(language: str) -> Optional[HTTPException]:
@@ -82,12 +92,12 @@ async def search(request_data: SearchRequest):
 
 
 @app.get("/api/v1/feed/")
-async def feed(request_data: FeedRequest):
-    validation = await validate_language(request_data.language)
+async def feed(language: str, cursor: Optional[str] = None):
+    validation = await validate_language(language)
     if validation:
         return validation
 
-    return mongo_client.get_latest_article(request_data.language, request_data.cursor, 20), status.HTTP_200_OK
+    return mongo_client.get_latest_article(language, cursor, 20), status.HTTP_200_OK
 
 
 @app.get("/api/v1/auto-complete/")
@@ -112,3 +122,12 @@ async def get_article(request_data: ArticleRequest):
         return document, status.HTTP_200_OK
     else:
         return {"message": f"No article found with ID: {request_data.article_id}"}, status.HTTP_404_NOT_FOUND
+
+
+@app.get("/api/v1/languages/")
+async def get_languages(language: str):
+    validation = await validate_language(language)
+    if validation:
+        return validation
+
+    return ui_language[language], status.HTTP_200_OK

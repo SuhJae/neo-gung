@@ -1,0 +1,31 @@
+@font-face {
+    font-family: 'Inter';
+    src: url('assets/font/Inter-Variable.woff2') format('woff2'),
+    url('assets/font/Inter-Variable.woff') format('woff');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansKR';
+    src: url('assets/font/NotoSansKR-Variable.woff2') format('woff2'),
+    url('assets/font/NotoSansKR-Variable.woff') format('woff');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansZH';
+    src: url('assets/font/NotoSansZH-Variable.woff2') format('woff2'),
+    url('assets/font/NotoSansZH-Variable.woff') format('woff');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansJP';
+    src: url('assets/font/NotoSansJP-Variable.woff2') format('woff2'),
+    url('assets/font/NotoSansJP-Variable.woff') format('woff');
+    font-weight: 100 900;
+    font-style: normal;
+}

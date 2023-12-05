@@ -7,10 +7,15 @@ from modules.db import MongoDBClient
 from modules.log_manager import Logger, log
 
 
-# for English: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
-#                                                  to_language="en")
-# for Japanese: ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
-#                                                  to_language="ja")
+def translate(origin_lang: str, target_lang: str, text: str, service: str = "papago") -> Optional[str]:
+    try:
+        translated_text = ts.translate_text(translator=service, query_text=text, from_language=origin_lang,
+                                            to_language=target_lang)
+        return translated_text
+    except Exception as e:
+        log.error(f"Error translating article: {e}")
+        return None
+
 
 class ArticleTranslationScript:
     def __init__(self):
@@ -32,10 +37,8 @@ class ArticleTranslationScript:
     def translate_article(article: Article) -> Optional[Article]:
         try:
             # uning papago translator to translate the article from Korean to English
-            translated_title = ts.translate_text(translator="papago", query_text=article.title, from_language="ko",
-                                                 to_language="es")
-            translated_content = ts.translate_text(translator="papago", query_text=article.content, from_language="ko",
-                                                   to_language="es")
+            translated_title = translate(origin_lang="ko", target_lang="es", text=article.title)
+            translated_content = translate(origin_lang="ko", target_lang="es", text=article.content)
 
             return Article(source_prefix=article.source_prefix, article_id=article.article_id, source_url=article.url,
                            title=translated_title,
