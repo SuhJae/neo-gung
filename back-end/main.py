@@ -124,6 +124,11 @@ async def get_article(request_data: ArticleRequest):
         return {"message": f"No article found with ID: {request_data.article_id}"}, status.HTTP_404_NOT_FOUND
 
 
+@app.get("/api/v1/articles/count/")
+async def get_article_count():
+    return mongo_client.get_article_count(), status.HTTP_200_OK
+
+
 @app.get("/api/v1/languages/")
 async def get_languages(language: str):
     validation = await validate_language(language)

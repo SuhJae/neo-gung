@@ -8,6 +8,8 @@ lang_dir = "assets/lang/"
 original_lang = "en"
 target_lang = ["ko", "ja", "zh", "es"]
 
+overwrite = ["scroll_for_recent"]
+
 with open(lang_dir + original_lang + ".json", "r", encoding="utf-8") as f:
     original_lang_json = json.loads(f.read())
 
@@ -20,6 +22,10 @@ for lang in target_lang:
     for key in original_lang_json:
         if key not in target_lang_json:
             print(f"Missing key: {key}")
+            target_lang_json[key] = translator.translate_text(source_lang=original_lang, target_lang=lang,
+                                                              text=original_lang_json[key]).text
+        if key in overwrite:
+            print(f"Overwriting key: {key}")
             target_lang_json[key] = translator.translate_text(source_lang=original_lang, target_lang=lang,
                                                               text=original_lang_json[key]).text
 

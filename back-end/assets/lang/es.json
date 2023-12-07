@@ -1,5 +1,10 @@
 {
     "lang": "es",
     "theme_tooltip": "Alternar tema claro/oscuro",
-    "title": "Gung de Joseon"
+    "title": "Luma",
+    "searchPlaceholder": "Explora el patrimonio de Joseon",
+    "scrollForRecent": "Ver avisos recientes",
+    "joseonSpace": "Espacio Joseon",
+    "indexCount": "artículo indexado y traducido",
+    "themeTooltip": "Alternar tema claro/oscuro"
 }

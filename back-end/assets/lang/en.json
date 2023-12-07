@@ -1,5 +1,9 @@
 {
     "lang": "en",
-    "title": "Joseon's Gung",
-    "theme_tooltip": "Toggle light/dark theme"
+    "title": "Luma",
+    "joseonSpace": "Joseon Space",
+    "themeTooltip": "Toggle light/dark theme",
+    "searchPlaceholder": "Browse the Joseon's heritage",
+    "scrollForRecent": "View recent notices",
+    "indexCount": "article indexed & translated"
 }

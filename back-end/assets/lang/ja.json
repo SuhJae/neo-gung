@@ -1,5 +1,9 @@
 {
     "lang": "ja",
-    "theme_tooltip": "明暗テーマの切り替え",
-    "title": "朝鮮の宮"
+    "themeTooltip": "明暗テーマの切り替え",
+    "title": "ルマ",
+    "searchPlaceholder": "朝鮮の遺産を見る",
+    "scrollForRecent": "最近のお知らせを見る",
+    "joseonSpace": "朝鮮スペース・",
+    "indexCount": "記事索引＆翻訳"
 }

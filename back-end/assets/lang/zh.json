@@ -1,5 +1,9 @@
 {
     "lang": "zh",
-    "theme_tooltip": "切换明暗主题",
-    "title": "朝鲜的贡"
+    "themeTooltip": "切换明暗主题",
+    "title": "卢马",
+    "searchPlaceholder": "浏览朝鲜的遗产",
+    "scrollForRecent": "查看最近的通知",
+    "joseonSpace": "朝鲜空间",
+    "indexCount": "篇文章被索引和翻译"
 }

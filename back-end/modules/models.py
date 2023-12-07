@@ -1,11 +1,12 @@
 import re
+from typing import Optional
 
 
 class Article:
     valid_languages = ["ko", "en", "ja", "zh", "es"]
 
     def __init__(self, source_prefix: str, article_id: int, source_url: str, title: str, time: str, content: str,
-                 language: str = "ko"):
+                 language: str = "ko", mongo_id: Optional[str] = None):
         """
         Initialize a new article instance.
 
@@ -44,9 +45,10 @@ class Article:
         self.time = time
         self.content = content
         self.language = language
+        self.mongo_id = mongo_id
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "source_prefix": self.source_prefix,
             "article_id": self.article_id,
             "source_url": self.url,
@@ -55,6 +57,10 @@ class Article:
             "content": self.content,
             "language": self.language,
         }
+        if self.mongo_id:
+            result["id"] = self.mongo_id
+
+        return result
 
     def __str__(self):
         return f"Article ID: {self.article_id}\n" \

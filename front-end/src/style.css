@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+root {
+    scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar {
+    width: 6px;
+}
+
+html::-webkit-scrollbar-track {
+    @apply bg-base-100
+}
+
+html::-webkit-scrollbar-thumb {
+    @apply bg-primary
+}
 
 .font-en {
     font-family: 'NotoSansKR', 'Inter', sans-serif;

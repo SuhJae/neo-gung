@@ -2,7 +2,6 @@ from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from elasticsearch import Elasticsearch
 from pymongo import MongoClient, DESCENDING
-from typing import Optional
 
 from modules.models import *
 from modules.utils import strip_markdown
@@ -134,11 +133,15 @@ class MongoDBClient:
         article_list = []
 
         for article in articles:
+            mongo_id = str(article['_id'])
             time_formatted = article['time'].strftime('%Y-%m-%d')
-            article_list.append(Article(article['tag'], article['o_id'], article['url'], article['title'][language],
-                                        time_formatted, article['content'][language], language))
+            article_list.append(Article(article['tag'], article["o_id"], article['url'], article['title'][language],
+                                        time_formatted, article['content'][language], language, mongo_id))
 
         return article_list
+
+    def get_article_count(self) -> int:
+        return self.db.articles.count_documents({})
 
 
 class ElasticsearchClient:
