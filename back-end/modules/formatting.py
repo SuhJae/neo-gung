@@ -1,7 +1,11 @@
 # coding=utf-8
 from openai import OpenAI
+import json
 
-client = OpenAI(api_key="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")
+with open("../secrets.json", "r", encoding="utf-8") as f:
+    token = json.loads(f.read())["open_AI_key"]
+
+client = OpenAI(api_key=token)
 
 
 def format_notice(notice_text: str) -> str:

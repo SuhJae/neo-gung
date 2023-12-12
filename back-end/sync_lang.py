@@ -2,7 +2,11 @@
 import deepl
 import json
 
-translator = deepl.Translator("e696d34b-262a-e2fe-9aa0-b1577eec98a7:fx")
+# load secrets.json and get "deepl_api_key"
+with open("secrets.json", "r", encoding="utf-8") as f:
+    token = json.loads(f.read())["deepl_api_key"]
+
+translator = deepl.Translator(auth_key=token)
 lang_dir = "assets/lang/"
 
 original_lang = "en"
