@@ -97,19 +97,8 @@
     </div>
 
     <!--  Recent Contents  -->
-    <div class="flex justify-center items-center sm:px-8 px-2 py-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-screen-lg">
-        <div class="card bg-base-200 shadow-2xl h-96 overflow-clip outline outline-primary -outline-offset-8" v-for="article in articles">
-          <div class="card-body">
-            <h2 class="card-title">
-              {{ article.title }}
-            </h2>
-            <article class="prose prose-sm leading-tight" v-html="markdown.render(article.content)"/>
-          </div>
-          <div class="absolute bottom-1 w-full h-1/4 translate-y-1 bg-gradient-to-t from-base-200 from-30%"/>
-        </div>
-      </div>
-    </div>
+
+
   </div>
 </template>
 
